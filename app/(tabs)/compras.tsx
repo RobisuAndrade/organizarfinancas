@@ -3,12 +3,24 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, FlatList, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-
-// Importações do Firebase (Adicionado o 'remove')
+// Importações do Firebase
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../../firebaseConfig';
 
 const COMODOS = ['Cozinha', 'Quarto', 'Sala', 'Banheiro', 'Escritório', 'Varanda'];
+
+// Função auxiliar para converter "1.500,00" em número real (1500.00) para podermos somar
+const converterParaNumero = (valorString: string) => {
+  if (!valorString) return 0;
+  const numeroLimpo = valorString.replace(/\./g, '').replace(',', '.');
+  const numero = parseFloat(numeroLimpo);
+  return isNaN(numero) ? 0 : numero;
+};
+
+// Função para transformar de volta em "R$ 1.500,00"
+const formatarMoeda = (valor: number) => {
+  return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
 
 export default function Compras() {
   const router = useRouter();
@@ -57,7 +69,12 @@ export default function Compras() {
     return true;
   }).sort((a, b) => (a.comprado === b.comprado) ? 0 : a.comprado ? 1 : -1);
 
-  // 3. Funções de Ação (Firebase)
+  // 3. CALCULAR SUBTOTAL DOS ITENS FILTRADOS
+  const subtotal = listaFiltrada.reduce((acumulador, item) => {
+    return acumulador + converterParaNumero(item.valor);
+  }, 0);
+
+  // 4. Funções de Ação
   const adicionarItem = async () => {
     if (nome.trim().length === 0) {
       alert("O nome do item é obrigatório!");
@@ -85,36 +102,17 @@ export default function Compras() {
     }
   };
 
-  // --- NOVA LÓGICA DE EXCLUSÃO COM CONFIRMAÇÃO ---
- const confirmarExclusao = async (id: string, nomeItem: string) => {
+  const confirmarExclusao = async (id: string, nomeItem: string) => {
     if (Platform.OS === 'web') {
-      // Se estiver rodando no navegador (PC)
       const confirmou = window.confirm(`Tem certeza que deseja apagar "${nomeItem}" da lista?`);
-      if (confirmou) {
-        try {
-          await remove(ref(db, `compras/${id}`));
-        } catch (error) {
-          alert("Erro ao apagar o item.");
-        }
-      }
+      if (confirmou) await remove(ref(db, `compras/${id}`));
     } else {
-      // Se estiver rodando no Celular
       Alert.alert(
         "Excluir Item",
         `Tem certeza que deseja apagar "${nomeItem}" da lista?`,
         [
           { text: "Cancelar", style: "cancel" },
-          { 
-            text: "Excluir", 
-            style: "destructive", 
-            onPress: async () => {
-              try {
-                await remove(ref(db, `compras/${id}`));
-              } catch (error) {
-                alert("Erro ao apagar o item.");
-              }
-            } 
-          }
+          { text: "Excluir", style: "destructive", onPress: async () => await remove(ref(db, `compras/${id}`)) }
         ]
       );
     }
@@ -125,9 +123,7 @@ export default function Compras() {
   };
 
   const limparFiltros = () => {
-    setFiltroStatus('Todos');
-    setFiltroComodo('Todos');
-    setFiltroPrioridade(0);
+    setFiltroStatus('Todos'); setFiltroComodo('Todos'); setFiltroPrioridade(0);
   };
 
   const renderizarEstrelas = (qtd: number, interativo = false, onSelect?: (n: number) => void) => {
@@ -151,7 +147,10 @@ export default function Compras() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#B04FCF" />
           </TouchableOpacity>
-          <Text style={styles.titulo}>Para a Nossa Casa</Text>
+          <View>
+            <Text style={styles.titulo}>Para a Nossa Casa</Text>
+            <Text style={styles.subtitulo}>{listaFiltrada.length} itens encontrados</Text>
+          </View>
         </View>
 
         {/* BOTÕES DE AÇÃO */}
@@ -195,68 +194,72 @@ export default function Compras() {
           </View>
         )}
 
-        {/* LISTA DE ITENS */}
-        {listaFiltrada.length === 0 && !formAberto ? (
-          <View style={styles.emptyState}>
-            <Feather name="inbox" size={50} color="#2D1436" />
-            <Text style={styles.emptyStateText}>Nenhum item encontrado.</Text>
-          </View>
-        ) : (
-          <FlatList 
-            data={listaFiltrada}
-            keyExtractor={(item) => item.id}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 50 }}
-            renderItem={({ item }) => (
-              <View style={[styles.itemCard, item.comprado && styles.itemCardComprado]}>
-                
-                <View style={styles.itemHeader}>
-                  <TouchableOpacity style={[styles.checkbox, item.comprado && styles.checkboxMarcado]} onPress={() => alternarComprado(item.id, item.comprado)}>
-                    {item.comprado && <Feather name="check" size={14} color="#FFF" />}
-                  </TouchableOpacity>
-                  
-                  <View style={styles.itemTitleArea}>
-                    <Text style={[styles.itemTexto, item.comprado && styles.itemTextoRiscado]}>{item.nome}</Text>
-                    {renderizarEstrelas(item.prioridade)}
-                  </View>
-                  
-                  <View style={styles.badgeComodo}>
-                    <Text style={styles.badgeComodoText}>{item.comodo}</Text>
-                  </View>
-                </View>
-
-                {/* RODAPÉ DO ITEM: VALOR + AÇÕES */}
-                <View style={styles.itemFooter}>
-                  <Text style={styles.valorTexto}>R$ {item.valor}</Text>
-                  
-                  {/* Agrupando os botões na direita */}
-                  <View style={styles.footerActions}>
-                    {item.link ? (
-                      <TouchableOpacity style={styles.linkButton} onPress={() => abrirLink(item.link)}>
-                        <Feather name="external-link" size={14} color="#AA319C" />
-                        <Text style={styles.linkButtonText}>LINK</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <Text style={styles.noLinkText}>Sem link</Text>
-                    )}
-
-                    {/* BOTÃO DE EXCLUIR */}
-                    <TouchableOpacity 
-                      style={styles.deleteButton} 
-                      onPress={() => confirmarExclusao(item.id, item.nome)}
-                    >
-                      <Feather name="trash-2" size={16} color="#FF4D4D" />
+        {/* RETÂNGULO DA LISTA COM ROLAGEM LIMITADA (FLEX: 1) */}
+        <View style={styles.listArea}>
+          {listaFiltrada.length === 0 && !formAberto ? (
+            <View style={styles.emptyState}>
+              <Feather name="inbox" size={50} color="#2D1436" />
+              <Text style={styles.emptyStateText}>Nenhum item encontrado.</Text>
+            </View>
+          ) : (
+            <FlatList 
+              data={listaFiltrada}
+              keyExtractor={(item) => item.id}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 20 }}
+              renderItem={({ item }) => (
+                <View style={[styles.itemCard, item.comprado && styles.itemCardComprado]}>
+                  <View style={styles.itemHeader}>
+                    <TouchableOpacity style={[styles.checkbox, item.comprado && styles.checkboxMarcado]} onPress={() => alternarComprado(item.id, item.comprado)}>
+                      {item.comprado && <Feather name="check" size={14} color="#FFF" />}
                     </TouchableOpacity>
+                    
+                    <View style={styles.itemTitleArea}>
+                      <Text style={[styles.itemTexto, item.comprado && styles.itemTextoRiscado]}>{item.nome}</Text>
+                      {renderizarEstrelas(item.prioridade)}
+                    </View>
+                    
+                    <View style={styles.badgeComodo}>
+                      <Text style={styles.badgeComodoText}>{item.comodo}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.itemFooter}>
+                    <Text style={styles.valorTexto}>R$ {item.valor || '0,00'}</Text>
+                    
+                    <View style={styles.footerActions}>
+                      {item.link ? (
+                        <TouchableOpacity style={styles.linkButton} onPress={() => abrirLink(item.link)}>
+                          <Feather name="external-link" size={14} color="#AA319C" />
+                          <Text style={styles.linkButtonText}>LINK</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.noLinkText}>Sem link</Text>
+                      )}
+
+                      <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.nome)}>
+                        <Feather name="trash-2" size={16} color="#FF4D4D" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
                 </View>
+              )}
+            />
+          )}
+        </View>
 
-              </View>
-            )}
-          />
-        )}
+        {/* RODAPÉ FIXO DE SUBTOTAL */}
+        <View style={styles.subtotalContainer}>
+          <View style={styles.subtotalHeader}>
+            <Feather name="pie-chart" size={18} color="#B04FCF" />
+            <Text style={styles.subtotalLabel}>Subtotal da Lista</Text>
+          </View>
+          <Text style={styles.subtotalValue}>{formatarMoeda(subtotal)}</Text>
+        </View>
+
       </View>
 
-      {/* MODAL DE FILTROS */}
+      {/* MODAL DE FILTROS MANTIDO IGUAL */}
       <Modal visible={menuFiltroAberto} animationType="fade" transparent={true} onRequestClose={() => setMenuFiltroAberto(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBgClick} onPress={() => setMenuFiltroAberto(false)} activeOpacity={1} />
@@ -330,6 +333,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E0A24', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2D1436' },
   titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
+  subtitulo: { fontSize: 12, color: '#888', marginTop: 2 }, // Adicionei um contador de itens discretinho no topo!
   
   actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   toggleFormButton: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#AA319C', padding: 15, borderRadius: 12, justifyContent: 'center', marginRight: 10 },
@@ -342,6 +346,33 @@ const styles = StyleSheet.create({
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
   emptyStateText: { color: '#666', fontSize: 16, marginTop: 15 },
 
+  // --- NOVA ÁREA DA LISTA (O "RETÂNGULO" DE ROLAGEM) ---
+  listArea: {
+    flex: 1, // Isso garante que a lista cresça apenas até o rodapé, criando a barra de rolagem internamente!
+  },
+
+  // --- NOVO RODAPÉ DE SUBTOTAL ---
+  subtotalContainer: {
+    backgroundColor: '#1E0A24',
+    padding: 20,
+    borderRadius: 16,
+    marginTop: 15, // Espaço entre a lista e o subtotal
+    borderWidth: 1,
+    borderColor: '#B04FCF',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    shadowColor: '#AA319C',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  subtotalHeader: { flexDirection: 'row', alignItems: 'center' },
+  subtotalLabel: { color: '#B04FCF', fontSize: 14, fontWeight: 'bold', marginLeft: 8, textTransform: 'uppercase' },
+  subtotalValue: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
+
+  // (RESTO DOS ESTILOS MANTIDOS)
   modalOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.7)' },
   modalBgClick: { flex: 1 },
   sideMenu: { width: '80%', maxWidth: 350, backgroundColor: '#120518', height: '100%', padding: 20, borderLeftWidth: 1, borderColor: '#2D1436', shadowColor: '#000', shadowOffset: { width: -10, height: 0 }, shadowOpacity: 0.5, shadowRadius: 20 },
@@ -387,7 +418,6 @@ const styles = StyleSheet.create({
   itemFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 15, borderTopWidth: 1, borderTopColor: '#2D1436' },
   valorTexto: { fontSize: 16, color: '#FFF', fontWeight: 'bold' },
   
-  // NOVOS ESTILOS PARA OS BOTÕES DO RODAPÉ (LINK E LIXEIRA)
   footerActions: { flexDirection: 'row', alignItems: 'center' },
   linkButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#AA319C20', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#AA319C', marginRight: 10 },
   linkButtonText: { color: '#AA319C', fontSize: 12, fontWeight: 'bold', marginLeft: 6 },
