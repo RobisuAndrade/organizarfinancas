@@ -1,98 +1,213 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import React from 'react';
+import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
 
-export default function HomeScreen() {
+export default function Home() {
+  const router = useRouter();
+
+const navegarPara = (caminho: string) => {
+    router.push(caminho as any);
+  };
+
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+    <SafeAreaView style={styles.safeArea}>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        
+        <View style={styles.contentWrapper}>
+          
+          {/* Cabeçalho de Boas-vindas */}
+          <View style={styles.header}>
+            <Text style={styles.saudacao}>Bem-vindos de volta!</Text>
+            <Text style={styles.titulo}>Finanças{"\n"}Robinho & Vanessinha</Text>
+            <View style={styles.linhaDecorativa} />
+          </View>
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+          <Text style={styles.sectionTitle}>Menu Principal</Text>
+
+          {/* Grade de Menu (Os 4 quadradinhos) */}
+          <View style={styles.gridContainer}>
+            
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Visão Geral')}>
+              <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
+                <Feather name="pie-chart" size={22} color="#FFF" />
+              </View>
+              <Text style={styles.squareCardTitle}>Visão Geral</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Novo Gasto')}>
+              <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
+                <Feather name="plus-circle" size={22} color="#FFF" />
+              </View>
+              <Text style={styles.squareCardTitle}>Novos Gastos</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/compras')}>
+  <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
+    <Feather name="shopping-bag" size={22} color="#FFF" />
+  </View>
+  <Text style={styles.squareCardTitle}>Lista de Compras</Text>
+</TouchableOpacity>
+
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Nossas Metas')}>
+              <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
+                <Feather name="star" size={22} color="#FFF" />
+              </View>
+              <Text style={styles.squareCardTitle}>Nossas Metas</Text>
+            </TouchableOpacity>
+
+          </View>
+
+          {/* Seção de Resumo no Rodapé */}
+          <View style={styles.footerSection}>
+            <Text style={styles.sectionTitle}>Resumo Rápido</Text>
+            <View style={styles.footerGrid}>
+              
+              <View style={styles.infoBox}>
+                <View style={styles.infoIconRow}>
+                  <Feather name="trending-down" size={16} color="#B04FCF" />
+                  <Text style={styles.infoTag}>Saídas</Text>
+                </View>
+                <Text style={styles.infoValor}>R$ 450,00</Text>
+                <Text style={styles.infoDesc}>Gastos este mês</Text>
+              </View>
+
+              <View style={styles.infoBox}>
+                <View style={styles.infoIconRow}>
+                  <Feather name="check-circle" size={16} color="#AA319C" />
+                  <Text style={styles.infoTag}>Meta</Text>
+                </View>
+                <Text style={styles.infoValor}>R$ 2.500</Text>
+                <Text style={styles.infoDesc}>Poupança Casal</Text>
+              </View>
+
+            </View>
+          </View>
+
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
+  safeArea: { 
+    flex: 1, 
+    backgroundColor: '#0F0414' // Fundo Dark profundo (roxo quase preto)
+  },
+  container: { 
+    paddingTop: 30, 
+    paddingBottom: 60, 
+    alignItems: 'center' 
+  },
+  contentWrapper: { 
+    width: '100%', 
+    maxWidth: 500, 
+    paddingHorizontal: 20 
+  },
+  header: { 
+    marginBottom: 40 
+  },
+  saudacao: { 
+    fontSize: 16, 
+    color: '#B04FCF', 
+    fontWeight: '600' 
+  },
+  titulo: { 
+    fontSize: 28, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF', 
+    marginTop: 8, 
+    lineHeight: 34 
+  },
+  linhaDecorativa: { 
+    height: 4, 
+    width: 40, 
+    backgroundColor: '#AA319C', 
+    borderRadius: 2, 
+    marginTop: 15 
+  },
+  sectionTitle: { 
+    fontSize: 12, 
+    fontWeight: '800', 
+    color: '#888', 
+    marginBottom: 15, 
+    textTransform: 'uppercase', 
+    letterSpacing: 2 
+  },
+  gridContainer: { 
+    flexDirection: 'row', 
+    flexWrap: 'wrap', 
+    justifyContent: 'space-between', 
+    marginBottom: 40 
+  },
+  squareCard: { 
+    backgroundColor: '#1E0A24', // Card levemente mais claro que o fundo
+    width: '47%', 
+    height: 125, 
+    borderRadius: 24, 
+    padding: 15, 
+    justifyContent: 'center', 
     alignItems: 'center',
-    gap: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#2D1436'
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  iconCircle: { 
+    width: 48, 
+    height: 48, 
+    borderRadius: 14, 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 12 
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  squareCardTitle: { 
+    fontSize: 14, 
+    fontWeight: '700', 
+    color: '#EEE', 
+    textAlign: 'center' 
   },
+  
+  // Estilos do Rodapé
+  footerSection: {
+    marginTop: 10,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#1E0A24'
+  },
+  footerGrid: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between' 
+  },
+  infoBox: { 
+    backgroundColor: '#1E0A24', 
+    width: '47%', 
+    borderRadius: 20, 
+    padding: 15,
+    borderWidth: 1, 
+    borderColor: '#2D1436'
+  },
+  infoIconRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 8 
+  },
+  infoTag: { 
+    fontSize: 10, 
+    fontWeight: 'bold', 
+    color: '#B04FCF', 
+    marginLeft: 6, 
+    textTransform: 'uppercase' 
+  },
+  infoValor: { 
+    fontSize: 18, 
+    fontWeight: 'bold', 
+    color: '#FFFFFF' 
+  },
+  infoDesc: { 
+    fontSize: 10, 
+    color: '#666', 
+    marginTop: 2 
+  }
 });
