@@ -1,13 +1,50 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
+// Importações do Firebase
+import { onValue, ref } from 'firebase/database';
+import { db } from '../../firebaseConfig';
 
 export default function Home() {
   const router = useRouter();
 
-const navegarPara = (caminho: string) => {
+  // Estado para guardar a quantidade real de itens na lista
+  const [qtdItensLista, setQtdItensLista] = useState(0);
+  const [totalEntradas, setTotalEntradas] = useState(0);
+
+  // Efeito para buscar a quantidade de itens no Firebase em tempo real
+  useEffect(() => {
+    const listaRef = ref(db, 'compras');
+    
+    const unsubscribe = onValue(listaRef, (snapshot) => {
+      const dados = snapshot.val();
+      if (dados) {
+        // Conta quantos itens existem dentro do banco de dados
+        const quantidade = Object.keys(dados).length;
+        setQtdItensLista(quantidade);
+      } else {
+        setQtdItensLista(0); // Se não tiver nada, fica 0
+      }
+    });
+const salariosRef = ref(db, 'salarios');
+    const unsubscribeSalarios = onValue(salariosRef, (snapshot) => {
+      const dados = snapshot.val();
+      if (dados && dados.totalEntradas) {
+        setTotalEntradas(dados.totalEntradas);
+      } else {
+        setTotalEntradas(0);
+      }
+    });
+
+    return () => {
+
+      unsubscribeSalarios();
+    };
+  }, []);
+
+  const navegarPara = (caminho: string) => {
     router.push(caminho as any);
   };
 
@@ -26,7 +63,7 @@ const navegarPara = (caminho: string) => {
 
           <Text style={styles.sectionTitle}>Menu Principal</Text>
 
-          {/* Grade de Menu (Os 4 quadradinhos) */}
+          {/* Grade de Menu */}
           <View style={styles.gridContainer}>
             
             <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Visão Geral')}>
@@ -36,19 +73,19 @@ const navegarPara = (caminho: string) => {
               <Text style={styles.squareCardTitle}>Visão Geral</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Novo Gasto')}>
-              <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
-                <Feather name="plus-circle" size={22} color="#FFF" />
-              </View>
-              <Text style={styles.squareCardTitle}>Novos Gastos</Text>
-            </TouchableOpacity>
+<TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/gestaogastos')}>
+  <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
+    <Feather name="plus-circle" size={22} color="#FFF" />
+  </View>
+  <Text style={styles.squareCardTitle}>Gestão de Gastos</Text>
+</TouchableOpacity>
 
             <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/compras')}>
-  <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
-    <Feather name="shopping-bag" size={22} color="#FFF" />
-  </View>
-  <Text style={styles.squareCardTitle}>Lista de Compras</Text>
-</TouchableOpacity>
+              <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
+                <Feather name="shopping-bag" size={22} color="#FFF" />
+              </View>
+              <Text style={styles.squareCardTitle}>Lista de Compras</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Nossas Metas')}>
               <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
@@ -57,29 +94,64 @@ const navegarPara = (caminho: string) => {
               <Text style={styles.squareCardTitle}>Nossas Metas</Text>
             </TouchableOpacity>
 
+            {/* NOVO BOTÃO: SALÁRIOS */}
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/salarios')}>
+              <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
+                <Feather name="dollar-sign" size={22} color="#FFF" />
+              </View>
+              <Text style={styles.squareCardTitle}>Salários</Text>
+            </TouchableOpacity>
+
           </View>
 
           {/* Seção de Resumo no Rodapé */}
           <View style={styles.footerSection}>
             <Text style={styles.sectionTitle}>Resumo Rápido</Text>
+            
             <View style={styles.footerGrid}>
               
+              {/* 1. ENTRADAS */}
+<View style={styles.infoBox}>
+  <View style={styles.infoIconRow}>
+    <Feather name="trending-up" size={16} color="#00E676" />
+    <Text style={[styles.infoTag, { color: '#00E676' }]}>Entradas</Text>
+  </View>
+  {/* AQUI ESTÁ A MÁGICA: */}
+  <Text style={styles.infoValor}>
+    {totalEntradas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+  </Text>
+  <Text style={styles.infoDesc}>Receitas do mês</Text>
+</View>
+
+              {/* 2. SAÍDAS */}
               <View style={styles.infoBox}>
                 <View style={styles.infoIconRow}>
-                  <Feather name="trending-down" size={16} color="#B04FCF" />
-                  <Text style={styles.infoTag}>Saídas</Text>
+                  <Feather name="trending-down" size={16} color="#FF3366" />
+                  <Text style={[styles.infoTag, { color: '#FF3366' }]}>Saídas</Text>
                 </View>
-                <Text style={styles.infoValor}>R$ 450,00</Text>
+                <Text style={styles.infoValor}>R$ 4.250</Text>
                 <Text style={styles.infoDesc}>Gastos este mês</Text>
               </View>
 
+              {/* 3. METAS */}
               <View style={styles.infoBox}>
                 <View style={styles.infoIconRow}>
-                  <Feather name="check-circle" size={16} color="#AA319C" />
-                  <Text style={styles.infoTag}>Meta</Text>
+                  <Feather name="target" size={16} color="#AA319C" />
+                  <Text style={styles.infoTag}>Metas</Text>
                 </View>
                 <Text style={styles.infoValor}>R$ 2.500</Text>
                 <Text style={styles.infoDesc}>Poupança Casal</Text>
+              </View>
+
+              {/* 4. QUANTIDADE DE PRODUTOS (AGORA DINÂMICA!) */}
+              <View style={styles.infoBox}>
+                <View style={styles.infoIconRow}>
+                  <Feather name="shopping-cart" size={16} color="#B04FCF" />
+                  <Text style={[styles.infoTag, { color: '#B04FCF' }]}>Na Lista</Text>
+                </View>
+                {/* Aqui colocamos a variável que pega do banco de dados */}
+                <Text style={styles.infoValor}>{qtdItensLista} Itens</Text>
+                <Text style={styles.infoDesc}>Para comprar</Text>
               </View>
 
             </View>
@@ -94,7 +166,7 @@ const navegarPara = (caminho: string) => {
 const styles = StyleSheet.create({
   safeArea: { 
     flex: 1, 
-    backgroundColor: '#0F0414' // Fundo Dark profundo (roxo quase preto)
+    backgroundColor: '#0F0414' 
   },
   container: { 
     paddingTop: 30, 
@@ -107,7 +179,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20 
   },
   header: { 
-    marginBottom: 40 
+    marginBottom: 30 
   },
   saudacao: { 
     fontSize: 16, 
@@ -140,10 +212,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', 
     flexWrap: 'wrap', 
     justifyContent: 'space-between', 
-    marginBottom: 40 
+    marginBottom: 30 
   },
   squareCard: { 
-    backgroundColor: '#1E0A24', // Card levemente mais claro que o fundo
+    backgroundColor: '#1E0A24', 
     width: '47%', 
     height: 125, 
     borderRadius: 24, 
@@ -169,22 +241,23 @@ const styles = StyleSheet.create({
     textAlign: 'center' 
   },
   
-  // Estilos do Rodapé
   footerSection: {
-    marginTop: 10,
+    marginTop: 5,
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: '#1E0A24'
   },
   footerGrid: { 
     flexDirection: 'row', 
+    flexWrap: 'wrap', 
     justifyContent: 'space-between' 
   },
   infoBox: { 
     backgroundColor: '#1E0A24', 
-    width: '47%', 
+    width: '48%', 
     borderRadius: 20, 
     padding: 15,
+    marginBottom: 15, 
     borderWidth: 1, 
     borderColor: '#2D1436'
   },
@@ -196,7 +269,6 @@ const styles = StyleSheet.create({
   infoTag: { 
     fontSize: 10, 
     fontWeight: 'bold', 
-    color: '#B04FCF', 
     marginLeft: 6, 
     textTransform: 'uppercase' 
   },

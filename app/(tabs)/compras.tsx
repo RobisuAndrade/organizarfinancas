@@ -9,7 +9,9 @@ import { db } from '../../firebaseConfig';
 
 const COMODOS = ['Cozinha', 'Quarto', 'Sala', 'Banheiro', 'Escritório', 'Varanda'];
 
-// Função auxiliar para converter "1.500,00" em número real (1500.00) para podermos somar
+// ----------------------------------------------------
+// FUNÇÕES AUXILIARES
+// ----------------------------------------------------
 const converterParaNumero = (valorString: string) => {
   if (!valorString) return 0;
   const numeroLimpo = valorString.replace(/\./g, '').replace(',', '.');
@@ -17,32 +19,51 @@ const converterParaNumero = (valorString: string) => {
   return isNaN(numero) ? 0 : numero;
 };
 
-// Função para transformar de volta em "R$ 1.500,00"
 const formatarMoeda = (valor: number) => {
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+};
+
+const formatarData = (isoString?: string) => {
+  if (!isoString) return '--/--/----';
+  try {
+    const data = new Date(isoString);
+    return data.toLocaleDateString('pt-BR');
+  } catch {
+    return '--/--/----';
+  }
+};
+
+const formatarInputMoeda = (texto: string) => {
+  let valorLimpo = texto.replace(/\D/g, ''); 
+  if (!valorLimpo) return '';
+  let valorNumero = (parseInt(valorLimpo, 10) / 100).toFixed(2);
+  let valorFormatado = valorNumero.replace('.', ',');
+  valorFormatado = valorFormatado.replace(/(\d)(?=(\d{3})+(?!\d))/g, '$1.');
+  return valorFormatado;
 };
 
 export default function Compras() {
   const router = useRouter();
   
-  // Estados Principais
   const [lista, setLista] = useState<any[]>([]); 
   const [formAberto, setFormAberto] = useState(false);
   const [menuFiltroAberto, setMenuFiltroAberto] = useState(false);
+  const [itemEditando, setItemEditando] = useState<string | null>(null);
+  
+  const [itensExpandidos, setItensExpandidos] = useState<string[]>([]);
 
-  // Estados do Formulário de Adição
   const [nome, setNome] = useState('');
   const [link, setLink] = useState('');
   const [prioridade, setPrioridade] = useState(3);
   const [comodo, setComodo] = useState('Cozinha');
-  const [valor, setValor] = useState('');
+  const [valor, setValor] = useState(''); 
+  const [valorPago, setValorPago] = useState(''); 
 
-  // Estados dos FILTROS
   const [filtroStatus, setFiltroStatus] = useState('Todos'); 
   const [filtroComodo, setFiltroComodo] = useState('Todos'); 
   const [filtroPrioridade, setFiltroPrioridade] = useState(0); 
+  const [busca, setBusca] = useState(''); 
 
-  // 1. Carregar dados do Firebase
   useEffect(() => {
     const listaRef = ref(db, 'compras');
     const unsubscribe = onValue(listaRef, (snapshot) => {
@@ -60,37 +81,77 @@ export default function Compras() {
     return () => unsubscribe();
   }, []);
 
-  // 2. Lógica de Filtragem da Lista
   const listaFiltrada = lista.filter(item => {
     if (filtroStatus === 'Comprados' && !item.comprado) return false;
     if (filtroStatus === 'Pendentes' && item.comprado) return false;
     if (filtroComodo !== 'Todos' && item.comodo !== filtroComodo) return false;
     if (filtroPrioridade !== 0 && item.prioridade !== filtroPrioridade) return false;
+    
+    if (busca.trim() !== '') {
+      const nomeItem = item.nome.toLowerCase();
+      const textoBusca = busca.toLowerCase();
+      if (!nomeItem.includes(textoBusca)) return false;
+    }
+
     return true;
   }).sort((a, b) => (a.comprado === b.comprado) ? 0 : a.comprado ? 1 : -1);
 
-  // 3. CALCULAR SUBTOTAL DOS ITENS FILTRADOS
-  const subtotal = listaFiltrada.reduce((acumulador, item) => {
-    return acumulador + converterParaNumero(item.valor);
-  }, 0);
+  const totais = listaFiltrada.reduce((acc, item) => {
+    const valorEstimado = converterParaNumero(item.valor);
+    let valorGasto = 0;
+    if (item.comprado) {
+      valorGasto = converterParaNumero(item.valorPago || item.valor);
+    }
+    return {
+      estimado: acc.estimado + valorEstimado,
+      gasto: acc.gasto + valorGasto
+    };
+  }, { estimado: 0, gasto: 0 });
 
-  // 4. Funções de Ação
-  const adicionarItem = async () => {
+  const abrirEdicao = (item: any) => {
+    setNome(item.nome);
+    setValor(item.valor || '');
+    setValorPago(item.valorPago || '');
+    setLink(item.link || '');
+    setPrioridade(item.prioridade);
+    setComodo(item.comodo);
+    setItemEditando(item.id); 
+    setFormAberto(true);      
+  };
+
+  const fecharFormulario = () => {
+    setNome(''); setLink(''); setValor(''); setValorPago(''); setPrioridade(3); setComodo('Cozinha');
+    setItemEditando(null); 
+    setFormAberto(false);
+  };
+
+  const salvarItem = async () => {
     if (nome.trim().length === 0) {
       alert("O nome do item é obrigatório!");
       return;
     }
-    const novoItem = {
-      nome, link, prioridade, comodo, 
-      valor: valor || '0,00', comprado: false, dataCriacao: new Date().toISOString()
-    };
     try {
-      const listaRef = ref(db, 'compras');
-      await set(push(listaRef), novoItem);
-      setNome(''); setLink(''); setValor(''); setPrioridade(3); setComodo('Cozinha');
-      setFormAberto(false);
+      if (itemEditando) {
+        const itemRef = ref(db, `compras/${itemEditando}`);
+        await update(itemRef, {
+          nome, link, prioridade, comodo, 
+          valor: valor || '0,00',
+          valorPago: valorPago || '' 
+        });
+      } else {
+        const novoItem = {
+          nome, link, prioridade, comodo, 
+          valor: valor || '0,00', 
+          valorPago: valorPago || '',
+          comprado: false, 
+          dataCriacao: new Date().toISOString()
+        };
+        const listaRef = ref(db, 'compras');
+        await set(push(listaRef), novoItem);
+      }
+      fecharFormulario();
     } catch (error) {
-      alert("Erro ao salvar o item no Firebase.");
+      alert("Erro ao salvar o item.");
     }
   };
 
@@ -122,8 +183,19 @@ export default function Compras() {
     if(url) Linking.openURL(url).catch(() => alert("Link inválido"));
   };
 
+  const alternarDetalhes = (id: string) => {
+    if (itensExpandidos.includes(id)) {
+      setItensExpandidos(itensExpandidos.filter(itemId => itemId !== id));
+    } else {
+      setItensExpandidos([...itensExpandidos, id]);
+    }
+  };
+
   const limparFiltros = () => {
-    setFiltroStatus('Todos'); setFiltroComodo('Todos'); setFiltroPrioridade(0);
+    setFiltroStatus('Todos'); 
+    setFiltroComodo('Todos'); 
+    setFiltroPrioridade(0);
+    setBusca(''); 
   };
 
   const renderizarEstrelas = (qtd: number, interativo = false, onSelect?: (n: number) => void) => {
@@ -153,9 +225,26 @@ export default function Compras() {
           </View>
         </View>
 
-        {/* BOTÕES DE AÇÃO */}
+        {/* BARRA DE PESQUISA AGORA FICA AQUI EM CIMA */}
+        <View style={styles.searchContainer}>
+          <Feather name="search" size={18} color="#AA319C" style={styles.searchIcon} />
+          <TextInput 
+            style={styles.searchInput}
+            placeholder="Pesquisar item..."
+            placeholderTextColor="#666"
+            value={busca}
+            onChangeText={setBusca}
+          />
+          {busca.length > 0 && (
+            <TouchableOpacity onPress={() => setBusca('')} style={styles.clearSearchButton}>
+              <Feather name="x" size={16} color="#888" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* BOTÕES DE AÇÃO ABAIXO DA PESQUISA */}
         <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.toggleFormButton} onPress={() => setFormAberto(!formAberto)}>
+          <TouchableOpacity style={styles.toggleFormButton} onPress={() => formAberto ? fecharFormulario() : setFormAberto(true)}>
             <Feather name={formAberto ? "x" : "plus"} size={20} color="#FFF" />
             <Text style={styles.toggleFormText}>{formAberto ? "Cancelar" : "Novo Item"}</Text>
           </TouchableOpacity>
@@ -172,13 +261,23 @@ export default function Compras() {
         {/* FORMULÁRIO */}
         {formAberto && (
           <View style={styles.formContainer}>
+            <Text style={styles.formTitle}>{itemEditando ? "Editando Item" : "Novo Item"}</Text>
             <TextInput style={styles.input} placeholder="Nome do item" placeholderTextColor="#666" value={nome} onChangeText={setNome} />
-            <TextInput style={styles.input} placeholder="Valor Estimado (Ex: 150,00)" placeholderTextColor="#666" value={valor} onChangeText={setValor} keyboardType="numeric" />
-            <TextInput style={styles.input} placeholder="Link do Produto (Opcional)" placeholderTextColor="#666" value={link} onChangeText={setLink} autoCapitalize="none" />
             
+            <View style={styles.rowInputs}>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabelMicro}>Estimado (R$)</Text>
+                <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valor} onChangeText={(txt) => setValor(formatarInputMoeda(txt))} keyboardType="numeric" />
+              </View>
+              <View style={styles.inputWrapper}>
+                <Text style={styles.inputLabelMicro}>Pago (R$)</Text>
+                <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorPago} onChangeText={(txt) => setValorPago(formatarInputMoeda(txt))} keyboardType="numeric" />
+              </View>
+            </View>
+
+            <TextInput style={styles.input} placeholder="Link do Produto (Opcional)" placeholderTextColor="#666" value={link} onChangeText={setLink} autoCapitalize="none" />
             <Text style={styles.label}>Prioridade (1 a 5 estrelas)</Text>
             {renderizarEstrelas(prioridade, true, setPrioridade)}
-            
             <Text style={styles.label}>Cômodo</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
               {COMODOS.map((c) => (
@@ -188,17 +287,17 @@ export default function Compras() {
               ))}
             </ScrollView>
 
-            <TouchableOpacity style={styles.submitButton} onPress={adicionarItem}>
-              <Text style={styles.submitButtonText}>Salvar Item</Text>
+            <TouchableOpacity style={styles.submitButton} onPress={salvarItem}>
+              <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Item" : "Salvar Item"}</Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* RETÂNGULO DA LISTA COM ROLAGEM LIMITADA (FLEX: 1) */}
+        {/* LISTA DE ITENS */}
         <View style={styles.listArea}>
           {listaFiltrada.length === 0 && !formAberto ? (
             <View style={styles.emptyState}>
-              <Feather name="inbox" size={50} color="#2D1436" />
+              <Feather name="search" size={50} color="#2D1436" />
               <Text style={styles.emptyStateText}>Nenhum item encontrado.</Text>
             </View>
           ) : (
@@ -207,63 +306,96 @@ export default function Compras() {
               keyExtractor={(item) => item.id}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={{ paddingBottom: 20 }}
-              renderItem={({ item }) => (
-                <View style={[styles.itemCard, item.comprado && styles.itemCardComprado]}>
-                  <View style={styles.itemHeader}>
-                    <TouchableOpacity style={[styles.checkbox, item.comprado && styles.checkboxMarcado]} onPress={() => alternarComprado(item.id, item.comprado)}>
-                      {item.comprado && <Feather name="check" size={14} color="#FFF" />}
-                    </TouchableOpacity>
-                    
-                    <View style={styles.itemTitleArea}>
-                      <Text style={[styles.itemTexto, item.comprado && styles.itemTextoRiscado]}>{item.nome}</Text>
-                      {renderizarEstrelas(item.prioridade)}
-                    </View>
-                    
-                    <View style={styles.badgeComodo}>
-                      <Text style={styles.badgeComodoText}>{item.comodo}</Text>
-                    </View>
-                  </View>
+              renderItem={({ item }) => {
+                const valorFinal = item.comprado && item.valorPago ? item.valorPago : (item.valor || '0,00');
+                const isExpandido = itensExpandidos.includes(item.id);
 
-                  <View style={styles.itemFooter}>
-                    <Text style={styles.valorTexto}>R$ {item.valor || '0,00'}</Text>
-                    
-                    <View style={styles.footerActions}>
-                      {item.link ? (
-                        <TouchableOpacity style={styles.linkButton} onPress={() => abrirLink(item.link)}>
-                          <Feather name="external-link" size={14} color="#AA319C" />
-                          <Text style={styles.linkButtonText}>LINK</Text>
-                        </TouchableOpacity>
-                      ) : (
-                        <Text style={styles.noLinkText}>Sem link</Text>
-                      )}
-
-                      <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.nome)}>
-                        <Feather name="trash-2" size={16} color="#FF4D4D" />
+                return (
+                  <View style={[styles.itemCard, item.comprado && styles.itemCardComprado]}>
+                    <View style={styles.itemHeader}>
+                      <TouchableOpacity style={[styles.checkbox, item.comprado && styles.checkboxMarcado]} onPress={() => alternarComprado(item.id, item.comprado)}>
+                        {item.comprado && <Feather name="check" size={14} color="#FFF" />}
                       </TouchableOpacity>
+                      
+                      <View style={styles.itemTitleArea}>
+                        <Text style={[styles.itemTexto, item.comprado && styles.itemTextoRiscado]}>{item.nome}</Text>
+                        {renderizarEstrelas(item.prioridade)}
+
+                        <TouchableOpacity style={styles.detalhesToggleMini} onPress={() => alternarDetalhes(item.id)}>
+                          <Text style={styles.detalhesToggleMiniText}>{isExpandido ? "Ocultar detalhes" : "Ver detalhes"}</Text>
+                          <Feather name={isExpandido ? "chevron-up" : "chevron-down"} size={12} color="#888" />
+                        </TouchableOpacity>
+
+                        {isExpandido && (
+                          <View style={styles.detalhesBox}>
+                            <Text style={styles.detalheData}>
+                              <Feather name="calendar" size={10} color="#666" /> Adicionado em: {formatarData(item.dataCriacao)}
+                            </Text>
+                            <View style={styles.detalhesValoresRow}>
+                              <Text style={styles.detalheTexto}>Estimado: <Text style={styles.detalheNumero}>R$ {item.valor || '0,00'}</Text></Text>
+                              {item.valorPago ? (
+                                <Text style={styles.detalheTextoDestaque}>Pago: <Text style={styles.detalheNumeroDestaque}>R$ {item.valorPago}</Text></Text>
+                              ) : null}
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                      
+                      <View style={styles.badgeComodo}>
+                        <Text style={styles.badgeComodoText}>{item.comodo}</Text>
+                      </View>
+                    </View>
+
+                    <View style={styles.itemFooter}>
+                      <Text style={[styles.valorTextoFinal, item.comprado && { color: '#AA319C' }]}>
+                        R$ {valorFinal}
+                      </Text>
+                      
+                      <View style={styles.footerActions}>
+                        {item.link ? (
+                          <TouchableOpacity style={styles.linkButton} onPress={() => abrirLink(item.link)}>
+                            <Feather name="external-link" size={14} color="#AA319C" />
+                            <Text style={styles.linkButtonText}>LINK</Text>
+                          </TouchableOpacity>
+                        ) : (
+                          <Text style={styles.noLinkText}>Sem link</Text>
+                        )}
+
+                        <TouchableOpacity style={styles.editButton} onPress={() => abrirEdicao(item)}>
+                          <Feather name="edit-2" size={16} color="#B04FCF" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.nome)}>
+                          <Feather name="trash-2" size={16} color="#FF4D4D" />
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   </View>
-                </View>
-              )}
+                );
+              }}
             />
           )}
         </View>
 
-        {/* RODAPÉ FIXO DE SUBTOTAL */}
+        {/* RODAPÉ DE TOTAIS */}
         <View style={styles.subtotalContainer}>
-          <View style={styles.subtotalHeader}>
-            <Feather name="pie-chart" size={18} color="#B04FCF" />
-            <Text style={styles.subtotalLabel}>Subtotal da Lista</Text>
+          <View style={styles.subtotalColumn}>
+            <Text style={styles.subtotalLabel}>Total Estimado</Text>
+            <Text style={styles.subtotalValueEstimado}>{formatarMoeda(totais.estimado)}</Text>
           </View>
-          <Text style={styles.subtotalValue}>{formatarMoeda(subtotal)}</Text>
+          <View style={styles.subtotalDivider} />
+          <View style={styles.subtotalColumn}>
+            <Text style={styles.subtotalLabelGasto}>Gasto Real</Text>
+            <Text style={styles.subtotalValueGasto}>{formatarMoeda(totais.gasto)}</Text>
+          </View>
         </View>
 
       </View>
 
-      {/* MODAL DE FILTROS MANTIDO IGUAL */}
+      {/* MODAL DE FILTROS */}
       <Modal visible={menuFiltroAberto} animationType="fade" transparent={true} onRequestClose={() => setMenuFiltroAberto(false)}>
         <View style={styles.modalOverlay}>
           <TouchableOpacity style={styles.modalBgClick} onPress={() => setMenuFiltroAberto(false)} activeOpacity={1} />
-          
           <View style={styles.sideMenu}>
             <View style={styles.sideMenuHeader}>
               <Text style={styles.sideMenuTitle}>Filtros</Text>
@@ -281,9 +413,7 @@ export default function Compras() {
                   </TouchableOpacity>
                 ))}
               </View>
-
               <View style={styles.filterDivider} />
-
               <Text style={styles.filterLabel}>Prioridade</Text>
               <View style={styles.filterChipsContainer}>
                 <TouchableOpacity style={[styles.filterChip, filtroPrioridade === 0 && styles.filterChipActive]} onPress={() => setFiltroPrioridade(0)}>
@@ -295,9 +425,7 @@ export default function Compras() {
                   </TouchableOpacity>
                 ))}
               </View>
-
               <View style={styles.filterDivider} />
-
               <Text style={styles.filterLabel}>Cômodo</Text>
               <View style={styles.filterChipsContainer}>
                 <TouchableOpacity style={[styles.filterChip, filtroComodo === 'Todos' && styles.filterChipActive]} onPress={() => setFiltroComodo('Todos')}>
@@ -333,46 +461,33 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E0A24', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2D1436' },
   titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
-  subtitulo: { fontSize: 12, color: '#888', marginTop: 2 }, // Adicionei um contador de itens discretinho no topo!
+  subtitulo: { fontSize: 12, color: '#888', marginTop: 2 },
   
-  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
+  // Ajuste do espaço abaixo da pesquisa e entre a ação
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E0A24', borderRadius: 12, paddingHorizontal: 15, height: 50, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436' },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, color: '#FFF', fontSize: 15 },
+  clearSearchButton: { padding: 5 },
+
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   toggleFormButton: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#AA319C', padding: 15, borderRadius: 12, justifyContent: 'center', marginRight: 10 },
   toggleFormText: { color: '#FFF', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
-  
   filterButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E0A24', paddingHorizontal: 20, borderRadius: 12, borderWidth: 1, borderColor: '#B04FCF', justifyContent: 'center', position: 'relative' },
   filterButtonText: { color: '#B04FCF', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
   filterActiveDot: { position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4, backgroundColor: '#FF3366' },
 
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
   emptyStateText: { color: '#666', fontSize: 16, marginTop: 15 },
+  listArea: { flex: 1 },
 
-  // --- NOVA ÁREA DA LISTA (O "RETÂNGULO" DE ROLAGEM) ---
-  listArea: {
-    flex: 1, // Isso garante que a lista cresça apenas até o rodapé, criando a barra de rolagem internamente!
-  },
+  subtotalContainer: { backgroundColor: '#1E0A24', padding: 15, borderRadius: 16, marginTop: 15, borderWidth: 1, borderColor: '#2D1436', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
+  subtotalColumn: { alignItems: 'center', flex: 1 },
+  subtotalDivider: { width: 1, backgroundColor: '#2D1436', height: '80%' },
+  subtotalLabel: { color: '#888', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
+  subtotalValueEstimado: { color: '#CCC', fontSize: 18, fontWeight: 'bold' },
+  subtotalLabelGasto: { color: '#B04FCF', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
+  subtotalValueGasto: { color: '#B04FCF', fontSize: 20, fontWeight: '900' },
 
-  // --- NOVO RODAPÉ DE SUBTOTAL ---
-  subtotalContainer: {
-    backgroundColor: '#1E0A24',
-    padding: 20,
-    borderRadius: 16,
-    marginTop: 15, // Espaço entre a lista e o subtotal
-    borderWidth: 1,
-    borderColor: '#B04FCF',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#AA319C',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  subtotalHeader: { flexDirection: 'row', alignItems: 'center' },
-  subtotalLabel: { color: '#B04FCF', fontSize: 14, fontWeight: 'bold', marginLeft: 8, textTransform: 'uppercase' },
-  subtotalValue: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
-
-  // (RESTO DOS ESTILOS MANTIDOS)
   modalOverlay: { flex: 1, flexDirection: 'row', backgroundColor: 'rgba(0,0,0,0.7)' },
   modalBgClick: { flex: 1 },
   sideMenu: { width: '80%', maxWidth: 350, backgroundColor: '#120518', height: '100%', padding: 20, borderLeftWidth: 1, borderColor: '#2D1436', shadowColor: '#000', shadowOffset: { width: -10, height: 0 }, shadowOpacity: 0.5, shadowRadius: 20 },
@@ -392,9 +507,13 @@ const styles = StyleSheet.create({
   applyFilterText: { color: '#FFF', fontWeight: 'bold' },
 
   formContainer: { backgroundColor: '#1E0A24', padding: 20, borderRadius: 16, marginBottom: 25, borderWidth: 1, borderColor: '#2D1436' },
+  formTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 18, marginBottom: 15, textAlign: 'center' },
+  rowInputs: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  inputWrapper: { width: '48%' },
+  inputLabelMicro: { color: '#888', fontSize: 11, marginBottom: 6, marginLeft: 4, textTransform: 'uppercase', fontWeight: 'bold' },
   input: { height: 50, backgroundColor: '#0F0414', borderRadius: 12, paddingHorizontal: 15, fontSize: 15, color: '#FFF', borderWidth: 1, borderColor: '#2D1436', marginBottom: 15 },
   label: { color: '#B04FCF', fontWeight: 'bold', fontSize: 14, marginBottom: 10, marginTop: 5 },
-  starsContainer: { flexDirection: 'row', marginBottom: 15 },
+  starsContainer: { flexDirection: 'row', marginBottom: 4 }, 
   starIcon: { marginRight: 5 },
   comodosScroll: { flexDirection: 'row', marginBottom: 25 },
   comodoTag: { backgroundColor: '#0F0414', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: '#2D1436', marginRight: 10, height: 38 },
@@ -405,22 +524,33 @@ const styles = StyleSheet.create({
   submitButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
   
   itemCard: { backgroundColor: '#1E0A24', padding: 18, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436' },
-  itemCardComprado: { opacity: 0.5 },
+  itemCardComprado: { opacity: 0.7 }, 
   itemHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 },
   checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: '#B04FCF', justifyContent: 'center', alignItems: 'center', marginRight: 12, marginTop: 2 },
   checkboxMarcado: { backgroundColor: '#B04FCF', borderColor: '#B04FCF' },
-  itemTitleArea: { flex: 1 },
+  itemTitleArea: { flex: 1, paddingRight: 10 },
   itemTexto: { fontSize: 18, color: '#FFF', fontWeight: 'bold', marginBottom: 4 },
-  itemTextoRiscado: { textDecorationLine: 'line-through', color: '#666' },
+  itemTextoRiscado: { textDecorationLine: 'line-through', color: '#888' },
+  
+  detalhesToggleMini: { flexDirection: 'row', alignItems: 'center', marginTop: 4, paddingVertical: 4 },
+  detalhesToggleMiniText: { fontSize: 12, color: '#888', marginRight: 4, fontWeight: '600' },
+  detalhesBox: { backgroundColor: '#0F0414', padding: 10, borderRadius: 10, marginTop: 8, borderWidth: 1, borderColor: '#2D1436' },
+  detalheData: { color: '#666', fontSize: 10, marginBottom: 6, textTransform: 'uppercase', fontWeight: '600' },
+  detalhesValoresRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  detalheTexto: { color: '#888', fontSize: 11, fontWeight: '500' },
+  detalheNumero: { color: '#CCC', fontWeight: 'bold' },
+  detalheTextoDestaque: { color: '#AA319C', fontSize: 11, fontWeight: 'bold' },
+  detalheNumeroDestaque: { color: '#B04FCF', fontWeight: '900' },
   badgeComodo: { backgroundColor: '#2D1436', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 10 },
   badgeComodoText: { color: '#B04FCF', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase' },
   
   itemFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 15, borderTopWidth: 1, borderTopColor: '#2D1436' },
-  valorTexto: { fontSize: 16, color: '#FFF', fontWeight: 'bold' },
+  valorTextoFinal: { fontSize: 16, color: '#FFF', fontWeight: 'bold', marginRight: 10 },
   
   footerActions: { flexDirection: 'row', alignItems: 'center' },
-  linkButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#AA319C20', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 8, borderWidth: 1, borderColor: '#AA319C', marginRight: 10 },
-  linkButtonText: { color: '#AA319C', fontSize: 12, fontWeight: 'bold', marginLeft: 6 },
+  linkButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#AA319C20', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, borderWidth: 1, borderColor: '#AA319C', marginRight: 10 },
+  linkButtonText: { color: '#AA319C', fontSize: 12, fontWeight: 'bold', marginLeft: 4 },
   noLinkText: { color: '#444', fontSize: 12, fontStyle: 'italic', marginRight: 10 },
+  editButton: { padding: 8, backgroundColor: '#AA319C15', borderRadius: 8, borderWidth: 1, borderColor: '#AA319C30', marginRight: 10 },
   deleteButton: { padding: 8, backgroundColor: '#FF4D4D15', borderRadius: 8, borderWidth: 1, borderColor: '#FF4D4D30' }
 });
