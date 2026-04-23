@@ -66,12 +66,12 @@ const salariosRef = ref(db, 'salarios');
           {/* Grade de Menu */}
           <View style={styles.gridContainer}>
             
-            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Visão Geral')}>
-              <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
-                <Feather name="pie-chart" size={22} color="#FFF" />
-              </View>
-              <Text style={styles.squareCardTitle}>Visão Geral</Text>
-            </TouchableOpacity>
+           <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/visaogeral')}>
+  <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
+    <Feather name="pie-chart" size={22} color="#FFF" />
+  </View>
+  <Text style={styles.squareCardTitle}>Visão Geral</Text>
+</TouchableOpacity>
 
 <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/gestaogastos')}>
   <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
