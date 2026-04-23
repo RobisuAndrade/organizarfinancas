@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router'; // <-- ATUALIZADO AQUI
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, FlatList, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, Animated, Dimensions, FlatList, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
@@ -64,6 +64,7 @@ const formatarDataInput = (texto: string) => {
 
 export default function GestaoGastos() {
   const router = useRouter();
+  const params = useLocalSearchParams(); // <-- NOVO: PUXA OS DADOS DA OUTRA TELA
 
   // Refs e Estados para Rolagem das Listas
   const scrollPgtoRef = useRef<ScrollView>(null);
@@ -71,10 +72,17 @@ export default function GestaoGastos() {
   const [offsetPgto, setOffsetPgto] = useState(0);
   const [offsetCat, setOffsetCat] = useState(0);
 
-  // Estados da Lista Principal
+  // Estados da Lista Principal e Filtros
   const [listaGastos, setListaGastos] = useState<any[]>([]);
   const [formAberto, setFormAberto] = useState(false);
   const [itemEditando, setItemEditando] = useState<string | null>(null);
+  
+  // Array de filtros (permite selecionar vários)
+  const [filtrosAtivos, setFiltrosAtivos] = useState<string[]>([]);
+  
+  // Controle do Menu Lateral (Drawer) Animado
+  const [modalFiltroAberto, setModalFiltroAberto] = useState(false);
+  const slideAnim = useRef(new Animated.Value(Dimensions.get('window').width)).current;
 
   // Estados do Formulário
   const [descricao, setDescricao] = useState('');
@@ -88,16 +96,27 @@ export default function GestaoGastos() {
   const [qtdParcelas, setQtdParcelas] = useState('1');
   const [valorTotalGeral, setValorTotalGeral] = useState('');
 
-  // Carregar dados
+  // ----------------------------------------------------
+  // INTEGRAÇÃO COM OS CLIQUES DOS CARDS
+  // ----------------------------------------------------
+  useEffect(() => {
+    // Se a tela abriu vindo de um clique de um Cartão da página inicial, aplica o filtro dele
+    if (params.banco || params.responsavel) {
+      const novosFiltros: string[] = [];
+      if (params.banco && typeof params.banco === 'string') novosFiltros.push(params.banco);
+      if (params.responsavel && typeof params.responsavel === 'string') novosFiltros.push(params.responsavel);
+      
+      setFiltrosAtivos(novosFiltros);
+    }
+  }, [params.banco, params.responsavel]); // Só executa quando esses parâmetros mudam
+
+  // Carregar dados do Firebase
   useEffect(() => {
     const gastosRef = ref(db, 'gastos');
     const unsubscribe = onValue(gastosRef, (snapshot) => {
       const dados = snapshot.val();
       if (dados) {
-        const itens = Object.keys(dados).map(key => ({
-          id: key,
-          ...dados[key]
-        }));
+        const itens = Object.keys(dados).map(key => ({ id: key, ...dados[key] }));
         itens.sort((a, b) => (a.pago === b.pago) ? 0 : a.pago ? 1 : -1);
         setListaGastos(itens);
       } else {
@@ -107,15 +126,66 @@ export default function GestaoGastos() {
     return () => unsubscribe();
   }, []);
 
+  // ----------------------------------------------------
+  // LÓGICA DE FILTRAGEM (ACEITA MÚLTIPLOS)
+  // ----------------------------------------------------
+  const gastosFiltrados = listaGastos.filter(item => {
+    if (filtrosAtivos.length === 0) return true; // Se não tem filtro, mostra tudo
+
+    // Verifica se os filtros ativos possuem pessoas e/ou métodos de pagamento
+    const temFiltroResp = filtrosAtivos.some(f => RESPONSAVEIS.includes(f));
+    const temFiltroPgto = filtrosAtivos.some(f => METODOS_PAGAMENTO.includes(f));
+
+    const passaResp = temFiltroResp ? filtrosAtivos.includes(item.responsavel) : true;
+    const passaPgto = temFiltroPgto ? filtrosAtivos.includes(item.pagamento) : true;
+
+    // Tem que passar nas duas condições
+    return passaResp && passaPgto;
+  });
+
+  const toggleFiltro = (filtro: string) => {
+    if (filtro === 'TODOS') {
+      setFiltrosAtivos([]);
+      return;
+    }
+    
+    setFiltrosAtivos(prev => {
+      if (prev.includes(filtro)) {
+        return prev.filter(f => f !== filtro); 
+      } else {
+        return [...prev, filtro]; 
+      }
+    });
+  };
+
+  // Funções de Animação do Menu Lateral
+  const abrirFiltros = () => {
+    setModalFiltroAberto(true);
+    Animated.timing(slideAnim, {
+      toValue: 0, 
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
+  };
+
+  const fecharFiltros = () => {
+    Animated.timing(slideAnim, {
+      toValue: Dimensions.get('window').width, 
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setModalFiltroAberto(false);
+    });
+  };
+
   // Cálculos Dinâmicos
   const numeroTotal = converterParaNumero(valorTotalGeral);
   const parcelasNum = parseInt(qtdParcelas) || 1;
   const valorParcela = isParcelado ? (numeroTotal / parcelasNum) : numeroTotal;
 
-  const totalEstimadoMes = listaGastos.reduce((acc, item) => acc + converterParaNumero(item.subtotal), 0);
-  const totalGastoMes = listaGastos.filter(i => i.pago).reduce((acc, item) => acc + converterParaNumero(item.subtotal), 0);
+  const totalEstimadoMes = gastosFiltrados.reduce((acc, item) => acc + converterParaNumero(item.subtotal), 0);
+  const totalGastoMes = gastosFiltrados.filter(i => i.pago).reduce((acc, item) => acc + converterParaNumero(item.subtotal), 0);
 
-  // Botão Data de Hoje
   const preencherDataHoje = () => {
     const hoje = new Date();
     const dd = String(hoje.getDate()).padStart(2, '0');
@@ -124,22 +194,18 @@ export default function GestaoGastos() {
     setDataCompra(`${dd}/${mm}/${yyyy}`);
   };
 
-  // Funções de Rolagem Horizontal Inteligente
   const passoScroll = 220; 
-
   const rolarPagamentos = (direcao: 'esq' | 'dir') => {
     const novoOffset = direcao === 'dir' ? offsetPgto + passoScroll : Math.max(0, offsetPgto - passoScroll);
     scrollPgtoRef.current?.scrollTo({ x: novoOffset, animated: true });
     setOffsetPgto(novoOffset);
   };
-
   const rolarCategorias = (direcao: 'esq' | 'dir') => {
     const novoOffset = direcao === 'dir' ? offsetCat + passoScroll : Math.max(0, offsetCat - passoScroll);
     scrollCatRef.current?.scrollTo({ x: novoOffset, animated: true });
     setOffsetCat(novoOffset);
   };
 
-  // Funções de Banco de Dados
   const salvarGasto = async () => {
     if (!descricao || !valorTotalGeral || !dataCompra) {
       Alert.alert("Atenção", "Preencha a descrição, data e o valor total!");
@@ -147,18 +213,10 @@ export default function GestaoGastos() {
     }
 
     const payload = {
-      descricao,
-      dataCompra,
-      responsavel,
-      pagamento,
-      categoria,
-      isFixo,
-      isParcelado,
-      qtdParcelas: isParcelado ? parcelasNum : 1,
-      totalGeral: valorTotalGeral,
-      subtotal: valorParcela.toFixed(2).replace('.', ','), 
-      pago: false,
-      dataRegistro: new Date().toISOString()
+      descricao, dataCompra, responsavel, pagamento, categoria,
+      isFixo, isParcelado, qtdParcelas: isParcelado ? parcelasNum : 1,
+      totalGeral: valorTotalGeral, subtotal: valorParcela.toFixed(2).replace('.', ','), 
+      pago: false, dataRegistro: new Date().toISOString()
     };
 
     try {
@@ -174,11 +232,7 @@ export default function GestaoGastos() {
   };
 
   const alternarPago = async (id: string, estadoAtual: boolean) => {
-    try {
-      await update(ref(db, `gastos/${id}`), { pago: !estadoAtual });
-    } catch (error) {
-      Alert.alert("Erro", "Erro ao atualizar status.");
-    }
+    try { await update(ref(db, `gastos/${id}`), { pago: !estadoAtual }); } catch (error) { Alert.alert("Erro", "Erro ao atualizar status."); }
   };
 
   const confirmarExclusao = async (id: string, descItem: string) => {
@@ -189,23 +243,13 @@ export default function GestaoGastos() {
   };
 
   const abrirEdicao = (item: any) => {
-    setDescricao(item.descricao);
-    setDataCompra(item.dataCompra);
-    setResponsavel(item.responsavel);
-    setPagamento(item.pagamento);
-    setCategoria(item.categoria);
-    setIsFixo(item.isFixo);
-    setIsParcelado(item.isParcelado);
-    setQtdParcelas(item.qtdParcelas.toString());
-    setValorTotalGeral(item.totalGeral);
-    
-    setItemEditando(item.id);
-    setFormAberto(true);
+    setDescricao(item.descricao); setDataCompra(item.dataCompra); setResponsavel(item.responsavel); setPagamento(item.pagamento);
+    setCategoria(item.categoria); setIsFixo(item.isFixo); setIsParcelado(item.isParcelado); setQtdParcelas(item.qtdParcelas.toString());
+    setValorTotalGeral(item.totalGeral); setItemEditando(item.id); setFormAberto(true);
   };
 
   const fecharFormulario = () => {
-    setDescricao(''); setDataCompra(''); setValorTotalGeral(''); setQtdParcelas('1');
-    setIsFixo(false); setIsParcelado(false); setResponsavel('Robinho');
+    setDescricao(''); setDataCompra(''); setValorTotalGeral(''); setQtdParcelas('1'); setIsFixo(false); setIsParcelado(false); setResponsavel('Robinho');
     setItemEditando(null); setFormAberto(false);
   };
 
@@ -213,7 +257,6 @@ export default function GestaoGastos() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* CABEÇALHO FIXO */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#B04FCF" />
@@ -224,24 +267,32 @@ export default function GestaoGastos() {
           </View>
         </View>
 
-        {/* LISTA DE GASTOS */}
         <View style={styles.listArea}>
           <FlatList 
-            data={listaGastos}
+            data={gastosFiltrados}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
             
-            // ----------------------------------------------------
-            // AQUI ESTÃO OS ELEMENTOS QUE AGORA ROLAM JUNTO COM A LISTA
-            // ----------------------------------------------------
             ListHeaderComponent={
               <View style={{ paddingBottom: 10 }}>
-                {/* BOTÃO NOVO GASTO */}
+                {/* BOTÕES NOVO GASTO + ABRIR MENU DE FILTROS */}
                 <View style={styles.actionRow}>
                   <TouchableOpacity style={styles.toggleFormButton} onPress={() => formAberto ? fecharFormulario() : setFormAberto(true)}>
                     <Feather name={formAberto ? "x" : "plus"} size={20} color="#FFF" />
-                    <Text style={styles.toggleFormText}>{formAberto ? "Cancelar Cadastro" : "Adicionar Novo Gasto"}</Text>
+                    <Text style={styles.toggleFormText}>{formAberto ? "Cancelar Cadastro" : "Adicionar Gasto"}</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.filterButton, filtrosAtivos.length > 0 && styles.filterButtonAtivo]} 
+                    onPress={abrirFiltros}
+                  >
+                    <Feather name="filter" size={20} color={filtrosAtivos.length > 0 ? "#B04FCF" : "#FFF"} />
+                    {filtrosAtivos.length > 0 && (
+                       <View style={styles.filterBadgeIndicator}>
+                         <Text style={styles.filterBadgeText}>{filtrosAtivos.length}</Text>
+                       </View>
+                    )}
                   </TouchableOpacity>
                 </View>
 
@@ -389,14 +440,11 @@ export default function GestaoGastos() {
               </View>
             }
             
-            // AVISO QUANDO A LISTA ESTÁ VAZIA E O FORMULÁRIO FECHADO
             ListEmptyComponent={
-              !formAberto ? (
-                <View style={styles.emptyState}>
-                  <Feather name="folder-minus" size={50} color="#2D1436" />
-                  <Text style={styles.emptyStateText}>Nenhuma conta registrada.</Text>
-                </View>
-              ) : null
+              <View style={styles.emptyState}>
+                <Feather name="folder-minus" size={50} color="#2D1436" />
+                <Text style={styles.emptyStateText}>Nenhuma conta encontrada.</Text>
+              </View>
             }
 
             renderItem={({ item }) => {
@@ -466,7 +514,6 @@ export default function GestaoGastos() {
           />
         </View>
 
-        {/* RODAPÉ DE TOTAIS FIXO NO FUNDO */}
         <View style={styles.subtotalContainer}>
           <View style={styles.subtotalColumn}>
             <Text style={styles.subtotalLabel}>Total a Pagar</Text>
@@ -478,6 +525,91 @@ export default function GestaoGastos() {
             <Text style={styles.subtotalValueGasto}>{formatarMoeda(totalGastoMes)}</Text>
           </View>
         </View>
+
+        {/* ==================================================== */}
+        {/* MENU LATERAL DE FILTROS ANIMADO */}
+        {/* ==================================================== */}
+        <Modal visible={modalFiltroAberto} transparent animationType="none">
+          <View style={styles.modalOverlay}>
+            
+            {/* Área invisível para clicar e fechar */}
+            <TouchableOpacity style={{ flex: 1 }} onPress={fecharFiltros} activeOpacity={1} />
+            
+            {/* O Menu que desliza da direita */}
+            <Animated.View style={[styles.drawerMenu, { transform: [{ translateX: slideAnim }] }]}>
+              
+              <View style={styles.drawerHeader}>
+                <View>
+                  <Text style={styles.modalTitle}>Filtrar Gastos</Text>
+                  <Text style={styles.modalSubtitle}>Selecione uma ou mais opções</Text>
+                </View>
+                <TouchableOpacity onPress={fecharFiltros} style={styles.btnCloseDrawer}>
+                  <Feather name="x" size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+                <Text style={styles.filtroSecaoTitulo}>Geral</Text>
+                <TouchableOpacity 
+                  style={[styles.modalFiltroItem, filtrosAtivos.length === 0 && styles.modalFiltroItemAtivo]} 
+                  onPress={() => toggleFiltro('TODOS')}
+                >
+                  <Feather name="list" size={18} color={filtrosAtivos.length === 0 ? "#FFF" : "#888"} style={{ marginRight: 10 }} />
+                  <Text style={[styles.modalFiltroTexto, filtrosAtivos.length === 0 && styles.modalFiltroTextoAtivo]}>Ver Todas as Contas</Text>
+                </TouchableOpacity>
+
+                <Text style={styles.filtroSecaoTitulo}>Por Pessoa</Text>
+                <View style={{ flexDirection: 'column', gap: 10 }}>
+                  <TouchableOpacity 
+                    style={[styles.modalFiltroItem, filtrosAtivos.includes('Robinho') && { backgroundColor: '#3b82f6', borderColor: '#3b82f6' }]} 
+                    onPress={() => toggleFiltro('Robinho')}
+                  >
+                    <View style={styles.checkboxMock}>
+                      {filtrosAtivos.includes('Robinho') && <Feather name="check" size={14} color="#FFF" />}
+                    </View>
+                    <Text style={[styles.modalFiltroTexto, filtrosAtivos.includes('Robinho') && styles.modalFiltroTextoAtivo]}>Robinho</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={[styles.modalFiltroItem, filtrosAtivos.includes('Vanessinha') && { backgroundColor: '#ec4899', borderColor: '#ec4899' }]} 
+                    onPress={() => toggleFiltro('Vanessinha')}
+                  >
+                    <View style={styles.checkboxMock}>
+                      {filtrosAtivos.includes('Vanessinha') && <Feather name="check" size={14} color="#FFF" />}
+                    </View>
+                    <Text style={[styles.modalFiltroTexto, filtrosAtivos.includes('Vanessinha') && styles.modalFiltroTextoAtivo]}>Vanessinha</Text>
+                  </TouchableOpacity>
+                </View>
+
+                <Text style={styles.filtroSecaoTitulo}>Por Cartão / Pagamento</Text>
+                <View style={{ flexDirection: 'column', gap: 10 }}>
+                  {METODOS_PAGAMENTO.map(metodo => {
+                    const isAtivo = filtrosAtivos.includes(metodo);
+                    const cor = CORES_BANCOS[metodo] || '#B04FCF';
+                    return (
+                      <TouchableOpacity 
+                        key={metodo} 
+                        style={[styles.modalFiltroItem, isAtivo && { backgroundColor: cor, borderColor: cor }]} 
+                        onPress={() => toggleFiltro(metodo)}
+                      >
+                        <View style={styles.checkboxMock}>
+                          {isAtivo && <Feather name="check" size={14} color="#FFF" />}
+                        </View>
+                        <Text style={[styles.modalFiltroTexto, isAtivo && styles.modalFiltroTextoAtivo]}>{metodo}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </ScrollView>
+
+              {/* BOTÃO CONCLUIR FIXO EMBAIXO */}
+              <TouchableOpacity style={styles.btnConcluirDrawer} onPress={fecharFiltros}>
+                <Text style={styles.btnConcluirDrawerTexto}>Aplicar Filtros</Text>
+              </TouchableOpacity>
+
+            </Animated.View>
+          </View>
+        </Modal>
 
       </View>
     </SafeAreaView>
@@ -492,9 +624,15 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
   subtitulo: { fontSize: 12, color: '#888', marginTop: 2 },
   
-  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
+  // AÇÕES E BOTÕES NO TOPO DA LISTA
+  actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15, gap: 10 },
   toggleFormButton: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#AA319C', padding: 15, borderRadius: 12, justifyContent: 'center' },
-  toggleFormText: { color: '#FFF', fontWeight: 'bold', fontSize: 15, marginLeft: 8 },
+  toggleFormText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
+  
+  filterButton: { position: 'relative', width: 54, backgroundColor: '#1E0A24', borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#2D1436' },
+  filterButtonAtivo: { borderColor: '#B04FCF', backgroundColor: '#B04FCF20' }, 
+  filterBadgeIndicator: { position: 'absolute', top: -5, right: -5, backgroundColor: '#FF3366', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#0F0414' },
+  filterBadgeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
 
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
   emptyStateText: { color: '#666', fontSize: 16, marginTop: 15 },
@@ -572,4 +710,27 @@ const styles = StyleSheet.create({
   subtotalValueEstimado: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
   subtotalLabelGasto: { color: '#00E676', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
   subtotalValueGasto: { color: '#00E676', fontSize: 20, fontWeight: '900' },
+
+  // =====================================
+  // ESTILOS DO MENU LATERAL (DRAWER ANIMADO)
+  // =====================================
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row' },
+  drawerMenu: { width: '80%', height: '100%', backgroundColor: '#0F0414', borderLeftWidth: 1, borderColor: '#2D1436', padding: 25, shadowColor: '#000', shadowOffset: { width: -5, height: 0 }, shadowOpacity: 0.5, shadowRadius: 15, elevation: 20 },
+  drawerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 25, marginTop: 20 },
+  btnCloseDrawer: { padding: 5, backgroundColor: '#1E0A24', borderRadius: 8, borderWidth: 1, borderColor: '#2D1436' },
+  modalTitle: { color: '#FFF', fontSize: 22, fontWeight: 'bold' },
+  modalSubtitle: { color: '#888', fontSize: 12, marginTop: 4 },
+  
+  filtroSecaoTitulo: { color: '#B04FCF', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 15, marginBottom: 10, letterSpacing: 1 },
+  
+  modalFiltroItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E0A24', paddingVertical: 14, paddingHorizontal: 15, borderRadius: 12, borderWidth: 1, borderColor: '#2D1436', marginBottom: 10 },
+  modalFiltroItemAtivo: { backgroundColor: '#B04FCF', borderColor: '#B04FCF' },
+  
+  checkboxMock: { width: 20, height: 20, borderRadius: 6, borderWidth: 2, borderColor: '#2D1436', marginRight: 12, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0F0414' },
+  
+  modalFiltroTexto: { color: '#AAA', fontWeight: 'bold', fontSize: 14 },
+  modalFiltroTextoAtivo: { color: '#FFF' },
+
+  btnConcluirDrawer: { backgroundColor: '#00E676', paddingVertical: 18, borderRadius: 14, alignItems: 'center', marginTop: 15 },
+  btnConcluirDrawerTexto: { color: '#0F0414', fontWeight: '900', fontSize: 16, textTransform: 'uppercase', letterSpacing: 1 },
 });
