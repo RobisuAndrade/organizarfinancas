@@ -7,6 +7,50 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } fr
 import { onValue, ref } from 'firebase/database';
 import { db } from '../../firebaseConfig';
 
+import { Dimensions } from 'react-native';
+
+// Pega o tamanho da tela do celular
+const { width, height } = Dimensions.get('window');
+
+// Lista de símbolos que vão aparecer no fundo
+const SIMBOLOS = ['R$', '%', '$', '€', '¥', '+', '-'];
+
+// Gera 35 posições aleatórias para espalhar os símbolos pela tela
+const elementosFundo = Array.from({ length: 35 }).map((_, i) => ({
+  id: i,
+  simbolo: SIMBOLOS[Math.floor(Math.random() * SIMBOLOS.length)],
+  left: Math.random() * width,
+  top: Math.random() * height,
+  fontSize: Math.random() * 40 + 20, 
+  opacity: Math.random() * 0.15 + 0.05, // AUMENTADO: Agora varia de 5% a 20%
+  rotacao: `${Math.random() * 60 - 30}deg` 
+}));
+
+// Componente que desenha o fundo
+function FundoFinanceiro() {
+  return (
+    <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden' }]} pointerEvents="none">
+      {elementosFundo.map((el) => (
+        <Text
+          key={el.id}
+          style={{
+            position: 'absolute',
+            left: el.left,
+            top: el.top,
+            fontSize: el.fontSize,
+            opacity: el.opacity,
+            color: '#B04FCF', // A cor roxa neon do app
+            fontWeight: '900',
+            transform: [{ rotate: el.rotacao }]
+          }}
+        >
+          {el.simbolo}
+        </Text>
+      ))}
+    </View>
+  );
+}
+
 export default function Home() {
   const router = useRouter();
 
@@ -50,8 +94,9 @@ const salariosRef = ref(db, 'salarios');
 
   return (
     <SafeAreaView style={styles.safeArea}>
+       <FundoFinanceiro />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        
+       
         <View style={styles.contentWrapper}>
           
           {/* Cabeçalho de Boas-vindas */}
