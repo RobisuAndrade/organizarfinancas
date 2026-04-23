@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { Dimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, ref } from 'firebase/database';
@@ -38,16 +38,26 @@ const formatarNomeMes = (mes: number, ano: number) => {
   return `${meses[mes - 1]} ${ano}`;
 };
 
+// Largura do Card dinâmico para o carrossel
+const windowWidth = Dimensions.get('window').width;
+const CARD_WIDTH = windowWidth > 600 ? 560 : windowWidth - 40;
+
 export default function VisaoGeral() {
   const router = useRouter();
 
+  // Estados
   const [listaGastos, setListaGastos] = useState<any[]>([]);
+  const [listaCompras, setListaCompras] = useState<any[]>([]);
   const [salariosMes, setSalariosMes] = useState<any>(null);
   const [ultimoGasto, setUltimoGasto] = useState<any>(null);
   const [ultimaCompra, setUltimaCompra] = useState<any>(null);
   
   const [mesView, setMesView] = useState(MES_ATUAL);
   const [anoView, setAnoView] = useState(ANO_ATUAL);
+
+  // Controle do Carrossel Inferior
+  const scrollCardsRef = useRef<ScrollView>(null);
+  const [offsetCards, setOffsetCards] = useState(0);
 
   useEffect(() => {
     // 1. Buscar Gastos
@@ -62,18 +72,19 @@ export default function VisaoGeral() {
       }
     });
 
-    // 2. Buscar Compras (para o Ticker)
+    // 2. Buscar Compras (Para o Ticker e para a lista inferior)
     const comprasRef = ref(db, 'compras');
     const unsubCompras = onValue(comprasRef, (snapshot) => {
       const dados = snapshot.val();
       if (dados) {
         const itens = Object.keys(dados).map(key => ({ id: key, ...dados[key] }));
+        setListaCompras(itens);
         const ordenados = [...itens].sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime());
         setUltimaCompra(ordenados[0]);
       }
     });
 
-    // 3. Buscar Salários do Mês Selecionado
+    // 3. Buscar Salários do Mês
     const mesFormatado = `${anoView}-${String(mesView).padStart(2, '0')}`;
     const salariosRef = ref(db, `salarios/historico/${mesFormatado}`);
     const unsubSalarios = onValue(salariosRef, (snapshot) => {
@@ -96,12 +107,18 @@ export default function VisaoGeral() {
     setAnoView(novoAno);
   };
 
+  const rolarCards = (direcao: 'esq' | 'dir') => {
+    const passo = CARD_WIDTH + 15; // Largura do card + margem
+    const novoOffset = direcao === 'dir' ? offsetCards + passo : Math.max(0, offsetCards - passo);
+    scrollCardsRef.current?.scrollTo({ x: novoOffset, animated: true });
+    setOffsetCards(novoOffset);
+  };
+
   const processarDados = () => {
     let totaisCartoes: { [key: string]: number } = {};
     let totalAvista = 0;
     let somaFixos = 0;
 
-    // Cálculo de Gastos
     listaGastos.forEach(gasto => {
       const partesData = (gasto.dataCompra || '').split('/');
       if (partesData.length !== 3) return;
@@ -134,7 +151,6 @@ export default function VisaoGeral() {
       }
     });
 
-    // Cálculo de Salários (Focando apenas nos 60%)
     let totalBrutoEntradas = 0;
     if (salariosMes) {
       const r = salariosMes.robinho;
@@ -151,11 +167,16 @@ export default function VisaoGeral() {
 
   const { totaisCartoes, totalAvista, totalGeralGastos, somaFixos, totalDisponivel60 } = processarDados();
 
+  // Filtrar os produtos da lista de compras que já foram PAGOS (checkbox marcado)
+  const produtosComprados = listaCompras
+    .filter(item => item.pago === true)
+    .sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime())
+    .slice(0, 5); // Pega os 5 mais recentes
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* CABEÇALHO */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#B04FCF" />
@@ -166,7 +187,7 @@ export default function VisaoGeral() {
           </View>
         </View>
 
-        {/* TICKER NO TOPO */}
+        {/* TICKER */}
         <View style={styles.tickerContainer}>
           <View style={styles.tickerBadge}>
              <Text style={styles.tickerBadgeText}>RECENTE</Text>
@@ -202,18 +223,15 @@ export default function VisaoGeral() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 50 }}>
           
-          {/* PAINEL DIVIDIDO: ENTRADAS VS GASTOS */}
           <View style={styles.comparisonContainer}>
             <View style={styles.compCard}>
               <Text style={styles.compLabel}>Entradas (60%)</Text>
               <Text style={[styles.compValue, { color: '#00E676' }]}>{formatarMoeda(totalDisponivel60)}</Text>
               <Text style={styles.compSub}>Líquido p/ Gastos</Text>
             </View>
-            
             <View style={styles.compDivider} />
-
             <View style={styles.compCard}>
               <Text style={styles.compLabel}>Total Previsto</Text>
               <Text style={[styles.compValue, { color: '#FF3366' }]}>{formatarMoeda(totalGeralGastos)}</Text>
@@ -221,7 +239,6 @@ export default function VisaoGeral() {
             </View>
           </View>
 
-          {/* STATUS DO MÊS (BARRA DE PROGRESSO VISUAL) */}
           <View style={styles.statusBox}>
             <Text style={styles.statusText}>
               {totalDisponivel60 >= totalGeralGastos 
@@ -272,21 +289,82 @@ export default function VisaoGeral() {
             </View>
           </View>
 
-          <Text style={styles.sectionTitle}>Compromissos Recorrentes</Text>
-          <View style={styles.fixedCard}>
-            <View style={styles.fixedHeader}>
-              <View style={styles.fixedIconBox}>
-                <Feather name="anchor" size={24} color="#FFF" />
+          {/* NOVO: HEADER DO CARROSSEL (FIXOS E METAS) */}
+          <View style={styles.scrollHeader}>
+            <Text style={styles.sectionTitleNoMargin}>Projetos & Fixos</Text>
+            <View style={styles.setasScrollBox}>
+              <TouchableOpacity onPress={() => rolarCards('esq')} style={styles.setaBotao}>
+                <Feather name="chevron-left" size={18} color="#B04FCF" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => rolarCards('dir')} style={styles.setaBotao}>
+                <Feather name="chevron-right" size={18} color="#B04FCF" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* CARROSSEL */}
+          <ScrollView 
+            ref={scrollCardsRef} 
+            horizontal 
+            showsHorizontalScrollIndicator={false} 
+            style={{ marginBottom: 25 }}
+            onScroll={(e) => setOffsetCards(e.nativeEvent.contentOffset.x)}
+            scrollEventThrottle={16}
+          >
+            {/* CARD 1: GASTOS FIXOS */}
+            <View style={[styles.fixedCard, { width: CARD_WIDTH, marginRight: 15 }]}>
+              <View style={styles.fixedHeader}>
+                <View style={styles.fixedIconBox}>
+                  <Feather name="repeat" size={24} color="#FFF" />
+                </View>
+                <View>
+                  <Text style={styles.fixedTitle}>Gastos FIXOS</Text>
+                  <Text style={styles.fixedSubtitle}>Contas recorrentes do mês</Text>
+                </View>
               </View>
-              <View>
-                <Text style={styles.fixedTitle}>Gastos FIXOS</Text>
-                <Text style={styles.fixedSubtitle}>Contas recorrentes</Text>
+              <View style={styles.fixedContent}>
+                <Text style={styles.fixedValueLabel}>Total Mensal Reservado</Text>
+                <Text style={styles.fixedValue}>{formatarMoeda(somaFixos)}</Text>
               </View>
             </View>
-            <View style={styles.fixedContent}>
-              <Text style={styles.fixedValueLabel}>Total Mensal Reservado</Text>
-              <Text style={styles.fixedValue}>{formatarMoeda(somaFixos)}</Text>
+
+            {/* CARD 2: NOSSAS METAS (Preparado para expansão) */}
+            <View style={[styles.fixedCard, { width: CARD_WIDTH, borderColor: '#FFD70030' }]}>
+              <View style={styles.fixedHeader}>
+                <View style={[styles.fixedIconBox, { backgroundColor: '#FFD700' }]}>
+                  <Feather name="target" size={24} color="#0F0414" />
+                </View>
+                <View>
+                  <Text style={styles.fixedTitle}>Nossas Metas</Text>
+                  <Text style={styles.fixedSubtitle}>Acompanhe os sonhos</Text>
+                </View>
+              </View>
+              <View style={styles.fixedContent}>
+                <Text style={styles.fixedValueLabel}>Metas em Andamento</Text>
+                <Text style={styles.fixedValue}>Em breve</Text>
+              </View>
+              <TouchableOpacity style={styles.btnAcessarMetas}>
+                <Text style={styles.btnAcessarMetasText}>Ver Página de Metas</Text>
+              </TouchableOpacity>
             </View>
+          </ScrollView>
+
+          {/* NOVO: LISTA DE PRODUTOS COMPRADOS */}
+          <Text style={styles.sectionTitle}>Últimas Compras Realizadas</Text>
+          <View style={styles.compradosContainer}>
+            {produtosComprados.length === 0 ? (
+              <Text style={styles.compradosEmpty}>Nenhum produto finalizado ainda.</Text>
+            ) : (
+              produtosComprados.map((prod) => (
+                <View key={prod.id} style={styles.compradosItem}>
+                  <View style={styles.compradosItemEsq}>
+                    <Feather name="check-circle" size={16} color="#00E676" style={{ marginRight: 8 }} />
+                    <Text style={styles.compradosItemNome}>{prod.nome}</Text>
+                  </View>
+                  <Text style={styles.compradosItemValor}>R$ {prod.valor || '0,00'}</Text>
+                </View>
+              ))
+            )}
           </View>
 
         </ScrollView>
@@ -317,7 +395,6 @@ const styles = StyleSheet.create({
   calendarioCentro: { flex: 1, alignItems: 'center' },
   calendarioTexto: { color: '#FFF', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase' },
 
-  // ESTILOS DO PAINEL DE COMPARAÇÃO
   comparisonContainer: { flexDirection: 'row', backgroundColor: '#1E0A24', borderRadius: 20, padding: 20, marginBottom: 10, borderWidth: 1, borderColor: '#2D1436', alignItems: 'center' },
   compCard: { flex: 1, alignItems: 'center' },
   compDivider: { width: 1, height: '70%', backgroundColor: '#2D1436' },
@@ -329,6 +406,7 @@ const styles = StyleSheet.create({
   statusText: { color: '#AAA', fontSize: 11, textAlign: 'center', fontWeight: '600' },
 
   sectionTitle: { color: '#B04FCF', fontSize: 14, fontWeight: 'bold', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1 },
+  sectionTitleNoMargin: { color: '#B04FCF', fontSize: 14, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
 
   cardsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
   faturaCard: { width: '48%', backgroundColor: '#1E0A24', borderRadius: 16, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436' },
@@ -342,6 +420,12 @@ const styles = StyleSheet.create({
   faturaDateLabel: { fontSize: 8, color: '#666', fontWeight: 'bold' },
   faturaDateNum: { fontSize: 10, color: '#CCC', fontWeight: '600', marginTop: 2 },
 
+  // CARROSSEL HEADER
+  scrollHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  setasScrollBox: { flexDirection: 'row', gap: 8 },
+  setaBotao: { padding: 4, backgroundColor: '#1E0A24', borderRadius: 6, borderWidth: 1, borderColor: '#2D1436' },
+
+  // CARDS GRANDES
   fixedCard: { backgroundColor: '#1E0A24', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#B04FCF30' },
   fixedHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   fixedIconBox: { width: 40, height: 40, backgroundColor: '#B04FCF', borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
@@ -349,5 +433,16 @@ const styles = StyleSheet.create({
   fixedSubtitle: { color: '#666', fontSize: 12 },
   fixedContent: { alignItems: 'center', backgroundColor: '#0F0414', padding: 15, borderRadius: 16, borderWidth: 1, borderColor: '#2D1436' },
   fixedValueLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 5 },
-  fixedValue: { color: '#FFF', fontSize: 28, fontWeight: '900' }
+  fixedValue: { color: '#FFF', fontSize: 28, fontWeight: '900' },
+  
+  btnAcessarMetas: { marginTop: 15, backgroundColor: '#FFD70015', padding: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1, borderColor: '#FFD70030' },
+  btnAcessarMetasText: { color: '#FFD700', fontWeight: 'bold', fontSize: 12 },
+
+  // LISTA DE COMPRADOS
+  compradosContainer: { backgroundColor: '#1E0A24', borderRadius: 16, padding: 15, borderWidth: 1, borderColor: '#2D1436' },
+  compradosEmpty: { color: '#666', fontSize: 12, fontStyle: 'italic', textAlign: 'center', padding: 10 },
+  compradosItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#2D1436' },
+  compradosItemEsq: { flexDirection: 'row', alignItems: 'center' },
+  compradosItemNome: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  compradosItemValor: { color: '#00E676', fontSize: 14, fontWeight: 'bold' }
 });

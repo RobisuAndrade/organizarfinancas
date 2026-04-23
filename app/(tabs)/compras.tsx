@@ -214,7 +214,7 @@ export default function Compras() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* CABEÇALHO */}
+        {/* CABEÇALHO FIXO */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#B04FCF" />
@@ -225,159 +225,170 @@ export default function Compras() {
           </View>
         </View>
 
-        {/* BARRA DE PESQUISA AGORA FICA AQUI EM CIMA */}
-        <View style={styles.searchContainer}>
-          <Feather name="search" size={18} color="#AA319C" style={styles.searchIcon} />
-          <TextInput 
-            style={styles.searchInput}
-            placeholder="Pesquisar item..."
-            placeholderTextColor="#666"
-            value={busca}
-            onChangeText={setBusca}
-          />
-          {busca.length > 0 && (
-            <TouchableOpacity onPress={() => setBusca('')} style={styles.clearSearchButton}>
-              <Feather name="x" size={16} color="#888" />
-            </TouchableOpacity>
-          )}
-        </View>
-
-        {/* BOTÕES DE AÇÃO ABAIXO DA PESQUISA */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.toggleFormButton} onPress={() => formAberto ? fecharFormulario() : setFormAberto(true)}>
-            <Feather name={formAberto ? "x" : "plus"} size={20} color="#FFF" />
-            <Text style={styles.toggleFormText}>{formAberto ? "Cancelar" : "Novo Item"}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.filterButton} onPress={() => setMenuFiltroAberto(true)}>
-            <Feather name="filter" size={20} color="#B04FCF" />
-            <Text style={styles.filterButtonText}>Filtros</Text>
-            {(filtroStatus !== 'Todos' || filtroComodo !== 'Todos' || filtroPrioridade !== 0) && (
-              <View style={styles.filterActiveDot} />
-            )}
-          </TouchableOpacity>
-        </View>
-
-        {/* FORMULÁRIO */}
-        {formAberto && (
-          <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>{itemEditando ? "Editando Item" : "Novo Item"}</Text>
-            <TextInput style={styles.input} placeholder="Nome do item" placeholderTextColor="#666" value={nome} onChangeText={setNome} />
-            
-            <View style={styles.rowInputs}>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabelMicro}>Estimado (R$)</Text>
-                <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valor} onChangeText={(txt) => setValor(formatarInputMoeda(txt))} keyboardType="numeric" />
-              </View>
-              <View style={styles.inputWrapper}>
-                <Text style={styles.inputLabelMicro}>Pago (R$)</Text>
-                <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorPago} onChangeText={(txt) => setValorPago(formatarInputMoeda(txt))} keyboardType="numeric" />
-              </View>
-            </View>
-
-            <TextInput style={styles.input} placeholder="Link do Produto (Opcional)" placeholderTextColor="#666" value={link} onChangeText={setLink} autoCapitalize="none" />
-            <Text style={styles.label}>Prioridade (1 a 5 estrelas)</Text>
-            {renderizarEstrelas(prioridade, true, setPrioridade)}
-            <Text style={styles.label}>Cômodo</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
-              {COMODOS.map((c) => (
-                <TouchableOpacity key={c} style={[styles.comodoTag, comodo === c && styles.comodoTagActive]} onPress={() => setComodo(c)}>
-                  <Text style={[styles.comodoTagText, comodo === c && styles.comodoTagTextActive]}>{c}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TouchableOpacity style={styles.submitButton} onPress={salvarItem}>
-              <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Item" : "Salvar Item"}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* LISTA DE ITENS */}
         <View style={styles.listArea}>
-          {listaFiltrada.length === 0 && !formAberto ? (
-            <View style={styles.emptyState}>
-              <Feather name="search" size={50} color="#2D1436" />
-              <Text style={styles.emptyStateText}>Nenhum item encontrado.</Text>
-            </View>
-          ) : (
-            <FlatList 
-              data={listaFiltrada}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              renderItem={({ item }) => {
-                const valorFinal = item.comprado && item.valorPago ? item.valorPago : (item.valor || '0,00');
-                const isExpandido = itensExpandidos.includes(item.id);
+          <FlatList 
+            data={listaFiltrada}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+            
+            // ----------------------------------------------------
+            // AQUI ESTÃO OS ELEMENTOS QUE AGORA ROLAM JUNTO COM A LISTA
+            // ----------------------------------------------------
+            ListHeaderComponent={
+              <View style={{ paddingBottom: 10 }}>
+                {/* BARRA DE PESQUISA */}
+                <View style={styles.searchContainer}>
+                  <Feather name="search" size={18} color="#AA319C" style={styles.searchIcon} />
+                  <TextInput 
+                    style={styles.searchInput}
+                    placeholder="Pesquisar item..."
+                    placeholderTextColor="#666"
+                    value={busca}
+                    onChangeText={setBusca}
+                  />
+                  {busca.length > 0 && (
+                    <TouchableOpacity onPress={() => setBusca('')} style={styles.clearSearchButton}>
+                      <Feather name="x" size={16} color="#888" />
+                    </TouchableOpacity>
+                  )}
+                </View>
 
-                return (
-                  <View style={[styles.itemCard, item.comprado && styles.itemCardComprado]}>
-                    <View style={styles.itemHeader}>
-                      <TouchableOpacity style={[styles.checkbox, item.comprado && styles.checkboxMarcado]} onPress={() => alternarComprado(item.id, item.comprado)}>
-                        {item.comprado && <Feather name="check" size={14} color="#FFF" />}
-                      </TouchableOpacity>
-                      
-                      <View style={styles.itemTitleArea}>
-                        <Text style={[styles.itemTexto, item.comprado && styles.itemTextoRiscado]}>{item.nome}</Text>
-                        {renderizarEstrelas(item.prioridade)}
+                {/* BOTÕES DE AÇÃO */}
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={styles.toggleFormButton} onPress={() => formAberto ? fecharFormulario() : setFormAberto(true)}>
+                    <Feather name={formAberto ? "x" : "plus"} size={20} color="#FFF" />
+                    <Text style={styles.toggleFormText}>{formAberto ? "Cancelar" : "Novo Item"}</Text>
+                  </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.detalhesToggleMini} onPress={() => alternarDetalhes(item.id)}>
-                          <Text style={styles.detalhesToggleMiniText}>{isExpandido ? "Ocultar detalhes" : "Ver detalhes"}</Text>
-                          <Feather name={isExpandido ? "chevron-up" : "chevron-down"} size={12} color="#888" />
-                        </TouchableOpacity>
+                  <TouchableOpacity style={styles.filterButton} onPress={() => setMenuFiltroAberto(true)}>
+                    <Feather name="filter" size={20} color="#B04FCF" />
+                    <Text style={styles.filterButtonText}>Filtros</Text>
+                    {(filtroStatus !== 'Todos' || filtroComodo !== 'Todos' || filtroPrioridade !== 0) && (
+                      <View style={styles.filterActiveDot} />
+                    )}
+                  </TouchableOpacity>
+                </View>
 
-                        {isExpandido && (
-                          <View style={styles.detalhesBox}>
-                            <Text style={styles.detalheData}>
-                              <Feather name="calendar" size={10} color="#666" /> Adicionado em: {formatarData(item.dataCriacao)}
-                            </Text>
-                            <View style={styles.detalhesValoresRow}>
-                              <Text style={styles.detalheTexto}>Estimado: <Text style={styles.detalheNumero}>R$ {item.valor || '0,00'}</Text></Text>
-                              {item.valorPago ? (
-                                <Text style={styles.detalheTextoDestaque}>Pago: <Text style={styles.detalheNumeroDestaque}>R$ {item.valorPago}</Text></Text>
-                              ) : null}
-                            </View>
-                          </View>
-                        )}
+                {/* FORMULÁRIO */}
+                {formAberto && (
+                  <View style={styles.formContainer}>
+                    <Text style={styles.formTitle}>{itemEditando ? "Editando Item" : "Novo Item"}</Text>
+                    <TextInput style={styles.input} placeholder="Nome do item" placeholderTextColor="#666" value={nome} onChangeText={setNome} />
+                    
+                    <View style={styles.rowInputs}>
+                      <View style={styles.inputWrapper}>
+                        <Text style={styles.inputLabelMicro}>Estimado (R$)</Text>
+                        <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valor} onChangeText={(txt) => setValor(formatarInputMoeda(txt))} keyboardType="numeric" />
                       </View>
-                      
-                      <View style={styles.badgeComodo}>
-                        <Text style={styles.badgeComodoText}>{item.comodo}</Text>
+                      <View style={styles.inputWrapper}>
+                        <Text style={styles.inputLabelMicro}>Pago (R$)</Text>
+                        <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorPago} onChangeText={(txt) => setValorPago(formatarInputMoeda(txt))} keyboardType="numeric" />
                       </View>
                     </View>
 
-                    <View style={styles.itemFooter}>
-                      <Text style={[styles.valorTextoFinal, item.comprado && { color: '#AA319C' }]}>
-                        R$ {valorFinal}
-                      </Text>
-                      
-                      <View style={styles.footerActions}>
-                        {item.link ? (
-                          <TouchableOpacity style={styles.linkButton} onPress={() => abrirLink(item.link)}>
-                            <Feather name="external-link" size={14} color="#AA319C" />
-                            <Text style={styles.linkButtonText}>LINK</Text>
-                          </TouchableOpacity>
-                        ) : (
-                          <Text style={styles.noLinkText}>Sem link</Text>
-                        )}
-
-                        <TouchableOpacity style={styles.editButton} onPress={() => abrirEdicao(item)}>
-                          <Feather name="edit-2" size={16} color="#B04FCF" />
+                    <TextInput style={styles.input} placeholder="Link do Produto (Opcional)" placeholderTextColor="#666" value={link} onChangeText={setLink} autoCapitalize="none" />
+                    <Text style={styles.label}>Prioridade (1 a 5 estrelas)</Text>
+                    {renderizarEstrelas(prioridade, true, setPrioridade)}
+                    <Text style={styles.label}>Cômodo</Text>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
+                      {COMODOS.map((c) => (
+                        <TouchableOpacity key={c} style={[styles.comodoTag, comodo === c && styles.comodoTagActive]} onPress={() => setComodo(c)}>
+                          <Text style={[styles.comodoTagText, comodo === c && styles.comodoTagTextActive]}>{c}</Text>
                         </TouchableOpacity>
+                      ))}
+                    </ScrollView>
 
-                        <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.nome)}>
-                          <Feather name="trash-2" size={16} color="#FF4D4D" />
-                        </TouchableOpacity>
-                      </View>
+                    <TouchableOpacity style={styles.submitButton} onPress={salvarItem}>
+                      <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Item" : "Salvar Item"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            }
+
+            // AVISO QUANDO A LISTA ESTÁ VAZIA
+            ListEmptyComponent={
+              !formAberto ? (
+                <View style={styles.emptyState}>
+                  <Feather name="search" size={50} color="#2D1436" />
+                  <Text style={styles.emptyStateText}>Nenhum item encontrado.</Text>
+                </View>
+              ) : null
+            }
+
+            renderItem={({ item }) => {
+              const valorFinal = item.comprado && item.valorPago ? item.valorPago : (item.valor || '0,00');
+              const isExpandido = itensExpandidos.includes(item.id);
+
+              return (
+                <View style={[styles.itemCard, item.comprado && styles.itemCardComprado]}>
+                  <View style={styles.itemHeader}>
+                    <TouchableOpacity style={[styles.checkbox, item.comprado && styles.checkboxMarcado]} onPress={() => alternarComprado(item.id, item.comprado)}>
+                      {item.comprado && <Feather name="check" size={14} color="#FFF" />}
+                    </TouchableOpacity>
+                    
+                    <View style={styles.itemTitleArea}>
+                      <Text style={[styles.itemTexto, item.comprado && styles.itemTextoRiscado]}>{item.nome}</Text>
+                      {renderizarEstrelas(item.prioridade)}
+
+                      <TouchableOpacity style={styles.detalhesToggleMini} onPress={() => alternarDetalhes(item.id)}>
+                        <Text style={styles.detalhesToggleMiniText}>{isExpandido ? "Ocultar detalhes" : "Ver detalhes"}</Text>
+                        <Feather name={isExpandido ? "chevron-up" : "chevron-down"} size={12} color="#888" />
+                      </TouchableOpacity>
+
+                      {isExpandido && (
+                        <View style={styles.detalhesBox}>
+                          <Text style={styles.detalheData}>
+                            <Feather name="calendar" size={10} color="#666" /> Adicionado em: {formatarData(item.dataCriacao)}
+                          </Text>
+                          <View style={styles.detalhesValoresRow}>
+                            <Text style={styles.detalheTexto}>Estimado: <Text style={styles.detalheNumero}>R$ {item.valor || '0,00'}</Text></Text>
+                            {item.valorPago ? (
+                              <Text style={styles.detalheTextoDestaque}>Pago: <Text style={styles.detalheNumeroDestaque}>R$ {item.valorPago}</Text></Text>
+                            ) : null}
+                          </View>
+                        </View>
+                      )}
+                    </View>
+                    
+                    <View style={styles.badgeComodo}>
+                      <Text style={styles.badgeComodoText}>{item.comodo}</Text>
                     </View>
                   </View>
-                );
-              }}
-            />
-          )}
+
+                  <View style={styles.itemFooter}>
+                    <Text style={[styles.valorTextoFinal, item.comprado && { color: '#AA319C' }]}>
+                      R$ {valorFinal}
+                    </Text>
+                    
+                    <View style={styles.footerActions}>
+                      {item.link ? (
+                        <TouchableOpacity style={styles.linkButton} onPress={() => abrirLink(item.link)}>
+                          <Feather name="external-link" size={14} color="#AA319C" />
+                          <Text style={styles.linkButtonText}>LINK</Text>
+                        </TouchableOpacity>
+                      ) : (
+                        <Text style={styles.noLinkText}>Sem link</Text>
+                      )}
+
+                      <TouchableOpacity style={styles.editButton} onPress={() => abrirEdicao(item)}>
+                        <Feather name="edit-2" size={16} color="#B04FCF" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.nome)}>
+                        <Feather name="trash-2" size={16} color="#FF4D4D" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </View>
+              );
+            }}
+          />
         </View>
 
-        {/* RODAPÉ DE TOTAIS */}
+        {/* RODAPÉ DE TOTAIS FIXO NO FUNDO */}
         <View style={styles.subtotalContainer}>
           <View style={styles.subtotalColumn}>
             <Text style={styles.subtotalLabel}>Total Estimado</Text>
@@ -463,7 +474,6 @@ const styles = StyleSheet.create({
   titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
   subtitulo: { fontSize: 12, color: '#888', marginTop: 2 },
   
-  // Ajuste do espaço abaixo da pesquisa e entre a ação
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#1E0A24', borderRadius: 12, paddingHorizontal: 15, height: 50, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436' },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, color: '#FFF', fontSize: 15 },

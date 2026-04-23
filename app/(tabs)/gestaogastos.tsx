@@ -124,8 +124,8 @@ export default function GestaoGastos() {
     setDataCompra(`${dd}/${mm}/${yyyy}`);
   };
 
-  // Funções de Rolagem Horizontal Inteligente (Para PC/Web)
-  const passoScroll = 220; // Quantidade de pixels que vai pular por clique
+  // Funções de Rolagem Horizontal Inteligente
+  const passoScroll = 220; 
 
   const rolarPagamentos = (direcao: 'esq' | 'dir') => {
     const novoOffset = direcao === 'dir' ? offsetPgto + passoScroll : Math.max(0, offsetPgto - passoScroll);
@@ -213,7 +213,7 @@ export default function GestaoGastos() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         
-        {/* CABEÇALHO */}
+        {/* CABEÇALHO FIXO */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#B04FCF" />
@@ -224,240 +224,249 @@ export default function GestaoGastos() {
           </View>
         </View>
 
-        {/* BOTÃO NOVO GASTO */}
-        <View style={styles.actionRow}>
-          <TouchableOpacity style={styles.toggleFormButton} onPress={() => formAberto ? fecharFormulario() : setFormAberto(true)}>
-            <Feather name={formAberto ? "x" : "plus"} size={20} color="#FFF" />
-            <Text style={styles.toggleFormText}>{formAberto ? "Cancelar Cadastro" : "Adicionar Novo Gasto"}</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* FORMULÁRIO DE CADASTRO */}
-        {formAberto && (
-          <View style={styles.formContainer}>
-            <Text style={styles.formTitle}>{itemEditando ? "Editar Despesa" : "Nova Despesa"}</Text>
-
-            <View style={styles.rowInputs}>
-              <View style={[styles.inputWrapper, { width: '64%' }]}>
-                <Text style={styles.inputLabelMicro}>Descrição Leve</Text>
-                <TextInput style={styles.input} placeholder="Ex: Parcela do Apê" placeholderTextColor="#666" value={descricao} onChangeText={setDescricao} />
-              </View>
-              
-              <View style={[styles.inputWrapper, { width: '32%' }]}>
-                <Text style={styles.inputLabelMicro}>Data</Text>
-                <View style={styles.dataContainer}>
-                  <TextInput 
-                    style={[styles.input, { paddingRight: 40 }]} 
-                    placeholder="DD/MM/AA" 
-                    placeholderTextColor="#666" 
-                    value={dataCompra} 
-                    onChangeText={(txt) => setDataCompra(formatarDataInput(txt))} 
-                    keyboardType="number-pad" 
-                    maxLength={10} 
-                  />
-                  <TouchableOpacity style={styles.iconDataHoje} onPress={preencherDataHoje}>
-                    <Feather name="calendar" size={18} color="#B04FCF" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            </View>
-
-            <Text style={styles.inputLabelMicro}>Quem fez / De quem é?</Text>
-            <View style={styles.tagsContainer}>
-              {RESPONSAVEIS.map(resp => (
-                <TouchableOpacity key={resp} style={[styles.tagNormal, responsavel === resp && styles.tagRespAtiva]} onPress={() => setResponsavel(resp)}>
-                  <Text style={[styles.tagTexto, responsavel === resp && styles.tagTextoAtiva]}>{resp}</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.inputLabelMicro}>Total Geral da Compra (R$)</Text>
-            <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorTotalGeral} onChangeText={(txt) => setValorTotalGeral(formatarInputMoeda(txt))} keyboardType="numeric" />
-
-            <View style={styles.switchesContainer}>
-              <TouchableOpacity style={[styles.switchBox, isFixo && styles.switchAtivoFixo]} onPress={() => setIsFixo(!isFixo)}>
-                <Feather name="repeat" size={16} color={isFixo ? "#FFF" : "#888"} style={{marginRight: 6}} />
-                <Text style={[styles.switchTexto, isFixo && styles.switchTextoAtivo]}>Gasto Fixo?</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.switchBox, isParcelado && styles.switchAtivoParcela]} onPress={() => { setIsParcelado(!isParcelado); if(isParcelado) setQtdParcelas('1'); }}>
-                <Feather name="layers" size={16} color={isParcelado ? "#FFF" : "#888"} style={{marginRight: 6}} />
-                <Text style={[styles.switchTexto, isParcelado && styles.switchTextoAtivo]}>Foi Parcelado?</Text>
-              </TouchableOpacity>
-            </View>
-
-            {isParcelado && (
-              <View style={styles.parcelaBox}>
-                <Text style={styles.inputLabelMicro}>Quantidade de Parcelas</Text>
-                <TextInput style={styles.input} placeholder="Ex: 12" placeholderTextColor="#666" value={qtdParcelas} onChangeText={setQtdParcelas} keyboardType="number-pad" />
-                
-                <View style={styles.calculoAoVivoBox}>
-                  <Text style={styles.calculoTexto}>Subtotal (Valor por parcela):</Text>
-                  <Text style={styles.calculoValor}>{formatarMoeda(valorParcela)}</Text>
-                </View>
-              </View>
-            )}
-
-            {!isParcelado && numeroTotal > 0 && (
-              <View style={styles.calculoAoVivoBox}>
-                 <Text style={styles.calculoTexto}>Valor único da conta:</Text>
-                 <Text style={styles.calculoValor}>{formatarMoeda(valorParcela)}</Text>
-              </View>
-            )}
-
-            {/* HEADER COM SETAS DE ROLAGEM PARA PAGAMENTO */}
-            <View style={styles.scrollHeader}>
-              <Text style={styles.inputLabelMicro}>Método de Pagamento</Text>
-              <View style={styles.setasScrollBox}>
-                <TouchableOpacity onPress={() => rolarPagamentos('esq')} style={styles.setaBotao}>
-                  <Feather name="chevron-left" size={18} color="#B04FCF" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => rolarPagamentos('dir')} style={styles.setaBotao}>
-                  <Feather name="chevron-right" size={18} color="#B04FCF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <ScrollView 
-              ref={scrollPgtoRef} 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              style={{ marginBottom: 15 }}
-              onScroll={(e) => setOffsetPgto(e.nativeEvent.contentOffset.x)}
-              scrollEventThrottle={16}
-            >
-              {METODOS_PAGAMENTO.map(metodo => {
-                const isAtivo = pagamento === metodo;
-                const corDoBanco = CORES_BANCOS[metodo] || '#B04FCF';
-                
-                return (
-                  <TouchableOpacity 
-                    key={metodo} 
-                    style={[styles.tagNormal, isAtivo && { backgroundColor: corDoBanco, borderColor: corDoBanco }]} 
-                    onPress={() => setPagamento(metodo)}
-                  >
-                    <Text style={[styles.tagTexto, isAtivo && styles.tagTextoAtiva]}>{metodo}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-
-            {/* HEADER COM SETAS DE ROLAGEM PARA CATEGORIAS */}
-            <View style={styles.scrollHeader}>
-              <Text style={styles.inputLabelMicro}>Categoria</Text>
-              <View style={styles.setasScrollBox}>
-                <TouchableOpacity onPress={() => rolarCategorias('esq')} style={styles.setaBotao}>
-                  <Feather name="chevron-left" size={18} color="#B04FCF" />
-                </TouchableOpacity>
-                <TouchableOpacity onPress={() => rolarCategorias('dir')} style={styles.setaBotao}>
-                  <Feather name="chevron-right" size={18} color="#B04FCF" />
-                </TouchableOpacity>
-              </View>
-            </View>
-            
-            <ScrollView 
-              ref={scrollCatRef} 
-              horizontal 
-              showsHorizontalScrollIndicator={false} 
-              style={{ marginBottom: 25 }}
-              onScroll={(e) => setOffsetCat(e.nativeEvent.contentOffset.x)}
-              scrollEventThrottle={16}
-            >
-              {CATEGORIAS.map(cat => (
-                <TouchableOpacity key={cat} style={[styles.tagNormal, categoria === cat && styles.tagCatAtiva]} onPress={() => setCategoria(cat)}>
-                  <Text style={[styles.tagTexto, categoria === cat && styles.tagTextoAtiva]}>{cat}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-
-            <TouchableOpacity style={styles.submitButton} onPress={salvarGasto}>
-              <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Gasto" : "Gravar Gasto"}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
         {/* LISTA DE GASTOS */}
         <View style={styles.listArea}>
-          {listaGastos.length === 0 && !formAberto ? (
-            <View style={styles.emptyState}>
-              <Feather name="folder-minus" size={50} color="#2D1436" />
-              <Text style={styles.emptyStateText}>Nenhuma conta registrada.</Text>
-            </View>
-          ) : (
-            <FlatList 
-              data={listaGastos}
-              keyExtractor={(item) => item.id}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={{ paddingBottom: 20 }}
-              renderItem={({ item }) => {
-                const corPagamentoLista = CORES_BANCOS[item.pagamento] || '#AA319C';
+          <FlatList 
+            data={listaGastos}
+            keyExtractor={(item) => item.id}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
+            
+            // ----------------------------------------------------
+            // AQUI ESTÃO OS ELEMENTOS QUE AGORA ROLAM JUNTO COM A LISTA
+            // ----------------------------------------------------
+            ListHeaderComponent={
+              <View style={{ paddingBottom: 10 }}>
+                {/* BOTÃO NOVO GASTO */}
+                <View style={styles.actionRow}>
+                  <TouchableOpacity style={styles.toggleFormButton} onPress={() => formAberto ? fecharFormulario() : setFormAberto(true)}>
+                    <Feather name={formAberto ? "x" : "plus"} size={20} color="#FFF" />
+                    <Text style={styles.toggleFormText}>{formAberto ? "Cancelar Cadastro" : "Adicionar Novo Gasto"}</Text>
+                  </TouchableOpacity>
+                </View>
 
-                return (
-                  <View style={[styles.itemCard, item.pago && styles.itemCardPago]}>
-                    <View style={styles.itemHeader}>
-                      <TouchableOpacity style={[styles.checkbox, item.pago && styles.checkboxMarcado]} onPress={() => alternarPago(item.id, item.pago)}>
-                        {item.pago && <Feather name="check" size={14} color="#FFF" />}
-                      </TouchableOpacity>
-                      
-                      <View style={styles.itemTitleArea}>
-                        <Text style={[styles.itemTexto, item.pago && styles.itemTextoRiscado]}>{item.descricao}</Text>
-                        <Text style={styles.dataItem}><Feather name="calendar" size={10}/> {item.dataCompra}</Text>
+                {/* FORMULÁRIO DE CADASTRO */}
+                {formAberto && (
+                  <View style={styles.formContainer}>
+                    <Text style={styles.formTitle}>{itemEditando ? "Editar Despesa" : "Nova Despesa"}</Text>
+
+                    <View style={styles.rowInputs}>
+                      <View style={[styles.inputWrapper, { width: '64%' }]}>
+                        <Text style={styles.inputLabelMicro}>Descrição Leve</Text>
+                        <TextInput style={styles.input} placeholder="Ex: Parcela do Apê" placeholderTextColor="#666" value={descricao} onChangeText={setDescricao} />
                       </View>
-
-                      <View style={{ alignItems: 'flex-end' }}>
-                        <View style={[styles.badge, { backgroundColor: item.responsavel === 'Robinho' ? '#3b82f630' : '#ec489930' }]}>
-                          <Text style={[styles.badgeText, { color: item.responsavel === 'Robinho' ? '#3b82f6' : '#ec4899' }]}>{item.responsavel}</Text>
+                      
+                      <View style={[styles.inputWrapper, { width: '32%' }]}>
+                        <Text style={styles.inputLabelMicro}>Data</Text>
+                        <View style={styles.dataContainer}>
+                          <TextInput 
+                            style={[styles.input, { paddingRight: 40 }]} 
+                            placeholder="DD/MM/AA" 
+                            placeholderTextColor="#666" 
+                            value={dataCompra} 
+                            onChangeText={(txt) => setDataCompra(formatarDataInput(txt))} 
+                            keyboardType="number-pad" 
+                            maxLength={10} 
+                          />
+                          <TouchableOpacity style={styles.iconDataHoje} onPress={preencherDataHoje}>
+                            <Feather name="calendar" size={18} color="#B04FCF" />
+                          </TouchableOpacity>
                         </View>
-                        {item.isFixo && (
-                          <View style={[styles.badge, { backgroundColor: '#FFD70030', marginTop: 4 }]}>
-                             <Text style={[styles.badgeText, { color: '#FFD700' }]}>FIXO</Text>
-                          </View>
-                        )}
                       </View>
                     </View>
 
-                    <View style={styles.infoTagsRow}>
-                      <View style={[styles.infoTagItem, { borderColor: corPagamentoLista, backgroundColor: `${corPagamentoLista}15` }]}>
-                        <Text style={{ color: corPagamentoLista, fontSize: 10, fontWeight: 'bold' }}>💳 {item.pagamento}</Text>
+                    <Text style={styles.inputLabelMicro}>Quem fez / De quem é?</Text>
+                    <View style={styles.tagsContainer}>
+                      {RESPONSAVEIS.map(resp => (
+                        <TouchableOpacity key={resp} style={[styles.tagNormal, responsavel === resp && styles.tagRespAtiva]} onPress={() => setResponsavel(resp)}>
+                          <Text style={[styles.tagTexto, responsavel === resp && styles.tagTextoAtiva]}>{resp}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+
+                    <Text style={styles.inputLabelMicro}>Total Geral da Compra (R$)</Text>
+                    <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorTotalGeral} onChangeText={(txt) => setValorTotalGeral(formatarInputMoeda(txt))} keyboardType="numeric" />
+
+                    <View style={styles.switchesContainer}>
+                      <TouchableOpacity style={[styles.switchBox, isFixo && styles.switchAtivoFixo]} onPress={() => setIsFixo(!isFixo)}>
+                        <Feather name="repeat" size={16} color={isFixo ? "#FFF" : "#888"} style={{marginRight: 6}} />
+                        <Text style={[styles.switchTexto, isFixo && styles.switchTextoAtivo]}>Gasto Fixo?</Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity style={[styles.switchBox, isParcelado && styles.switchAtivoParcela]} onPress={() => { setIsParcelado(!isParcelado); if(isParcelado) setQtdParcelas('1'); }}>
+                        <Feather name="layers" size={16} color={isParcelado ? "#FFF" : "#888"} style={{marginRight: 6}} />
+                        <Text style={[styles.switchTexto, isParcelado && styles.switchTextoAtivo]}>Foi Parcelado?</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {isParcelado && (
+                      <View style={styles.parcelaBox}>
+                        <Text style={styles.inputLabelMicro}>Quantidade de Parcelas</Text>
+                        <TextInput style={styles.input} placeholder="Ex: 12" placeholderTextColor="#666" value={qtdParcelas} onChangeText={setQtdParcelas} keyboardType="number-pad" />
+                        
+                        <View style={styles.calculoAoVivoBox}>
+                          <Text style={styles.calculoTexto}>Subtotal (Valor por parcela):</Text>
+                          <Text style={styles.calculoValor}>{formatarMoeda(valorParcela)}</Text>
+                        </View>
                       </View>
-                      <View style={styles.infoTagItem}>
-                        <Text style={styles.infoTagTexto}>🏷️ {item.categoria}</Text>
+                    )}
+
+                    {!isParcelado && numeroTotal > 0 && (
+                      <View style={styles.calculoAoVivoBox}>
+                         <Text style={styles.calculoTexto}>Valor único da conta:</Text>
+                         <Text style={styles.calculoValor}>{formatarMoeda(valorParcela)}</Text>
                       </View>
-                      {item.isParcelado && (
-                        <View style={styles.infoTagItem}>
-                          <Text style={styles.infoTagTexto}>📦 {item.qtdParcelas}x</Text>
+                    )}
+
+                    <View style={styles.scrollHeader}>
+                      <Text style={styles.inputLabelMicro}>Método de Pagamento</Text>
+                      <View style={styles.setasScrollBox}>
+                        <TouchableOpacity onPress={() => rolarPagamentos('esq')} style={styles.setaBotao}>
+                          <Feather name="chevron-left" size={18} color="#B04FCF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => rolarPagamentos('dir')} style={styles.setaBotao}>
+                          <Feather name="chevron-right" size={18} color="#B04FCF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    <ScrollView 
+                      ref={scrollPgtoRef} 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false} 
+                      style={{ marginBottom: 15 }}
+                      onScroll={(e) => setOffsetPgto(e.nativeEvent.contentOffset.x)}
+                      scrollEventThrottle={16}
+                    >
+                      {METODOS_PAGAMENTO.map(metodo => {
+                        const isAtivo = pagamento === metodo;
+                        const corDoBanco = CORES_BANCOS[metodo] || '#B04FCF';
+                        
+                        return (
+                          <TouchableOpacity 
+                            key={metodo} 
+                            style={[styles.tagNormal, isAtivo && { backgroundColor: corDoBanco, borderColor: corDoBanco }]} 
+                            onPress={() => setPagamento(metodo)}
+                          >
+                            <Text style={[styles.tagTexto, isAtivo && styles.tagTextoAtiva]}>{metodo}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </ScrollView>
+
+                    <View style={styles.scrollHeader}>
+                      <Text style={styles.inputLabelMicro}>Categoria</Text>
+                      <View style={styles.setasScrollBox}>
+                        <TouchableOpacity onPress={() => rolarCategorias('esq')} style={styles.setaBotao}>
+                          <Feather name="chevron-left" size={18} color="#B04FCF" />
+                        </TouchableOpacity>
+                        <TouchableOpacity onPress={() => rolarCategorias('dir')} style={styles.setaBotao}>
+                          <Feather name="chevron-right" size={18} color="#B04FCF" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                    
+                    <ScrollView 
+                      ref={scrollCatRef} 
+                      horizontal 
+                      showsHorizontalScrollIndicator={false} 
+                      style={{ marginBottom: 25 }}
+                      onScroll={(e) => setOffsetCat(e.nativeEvent.contentOffset.x)}
+                      scrollEventThrottle={16}
+                    >
+                      {CATEGORIAS.map(cat => (
+                        <TouchableOpacity key={cat} style={[styles.tagNormal, categoria === cat && styles.tagCatAtiva]} onPress={() => setCategoria(cat)}>
+                          <Text style={[styles.tagTexto, categoria === cat && styles.tagTextoAtiva]}>{cat}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </ScrollView>
+
+                    <TouchableOpacity style={styles.submitButton} onPress={salvarGasto}>
+                      <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Gasto" : "Gravar Gasto"}</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            }
+            
+            // AVISO QUANDO A LISTA ESTÁ VAZIA E O FORMULÁRIO FECHADO
+            ListEmptyComponent={
+              !formAberto ? (
+                <View style={styles.emptyState}>
+                  <Feather name="folder-minus" size={50} color="#2D1436" />
+                  <Text style={styles.emptyStateText}>Nenhuma conta registrada.</Text>
+                </View>
+              ) : null
+            }
+
+            renderItem={({ item }) => {
+              const corPagamentoLista = CORES_BANCOS[item.pagamento] || '#AA319C';
+
+              return (
+                <View style={[styles.itemCard, item.pago && styles.itemCardPago]}>
+                  <View style={styles.itemHeader}>
+                    <TouchableOpacity style={[styles.checkbox, item.pago && styles.checkboxMarcado]} onPress={() => alternarPago(item.id, item.pago)}>
+                      {item.pago && <Feather name="check" size={14} color="#FFF" />}
+                    </TouchableOpacity>
+                    
+                    <View style={styles.itemTitleArea}>
+                      <Text style={[styles.itemTexto, item.pago && styles.itemTextoRiscado]}>{item.descricao}</Text>
+                      <Text style={styles.dataItem}><Feather name="calendar" size={10}/> {item.dataCompra}</Text>
+                    </View>
+
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <View style={[styles.badge, { backgroundColor: item.responsavel === 'Robinho' ? '#3b82f630' : '#ec489930' }]}>
+                        <Text style={[styles.badgeText, { color: item.responsavel === 'Robinho' ? '#3b82f6' : '#ec4899' }]}>{item.responsavel}</Text>
+                      </View>
+                      {item.isFixo && (
+                        <View style={[styles.badge, { backgroundColor: '#FFD70030', marginTop: 4 }]}>
+                           <Text style={[styles.badgeText, { color: '#FFD700' }]}>FIXO</Text>
                         </View>
                       )}
                     </View>
+                  </View>
 
-                    <View style={styles.itemFooter}>
-                      <View>
-                        <Text style={styles.labelSubtotal}>Valor {item.isParcelado ? 'da Parcela' : 'Atual'}</Text>
-                        <Text style={[styles.valorTextoFinal, item.pago && { color: '#00E676' }]}>
-                          R$ {item.subtotal}
-                        </Text>
-                        {item.isParcelado && (
-                          <Text style={styles.totalGeralItem}>Total Gasto: R$ {item.totalGeral}</Text>
-                        )}
+                  <View style={styles.infoTagsRow}>
+                    <View style={[styles.infoTagItem, { borderColor: corPagamentoLista, backgroundColor: `${corPagamentoLista}15` }]}>
+                      <Text style={{ color: corPagamentoLista, fontSize: 10, fontWeight: 'bold' }}>💳 {item.pagamento}</Text>
+                    </View>
+                    <View style={styles.infoTagItem}>
+                      <Text style={styles.infoTagTexto}>🏷️ {item.categoria}</Text>
+                    </View>
+                    {item.isParcelado && (
+                      <View style={styles.infoTagItem}>
+                        <Text style={styles.infoTagTexto}>📦 {item.qtdParcelas}x</Text>
                       </View>
-                      
-                      <View style={styles.footerActions}>
-                        <TouchableOpacity style={styles.editButton} onPress={() => abrirEdicao(item)}>
-                          <Feather name="edit-2" size={16} color="#B04FCF" />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.descricao)}>
-                          <Feather name="trash-2" size={16} color="#FF4D4D" />
-                        </TouchableOpacity>
-                      </View>
+                    )}
+                  </View>
+
+                  <View style={styles.itemFooter}>
+                    <View>
+                      <Text style={styles.labelSubtotal}>Valor {item.isParcelado ? 'da Parcela' : 'Atual'}</Text>
+                      <Text style={[styles.valorTextoFinal, item.pago && { color: '#00E676' }]}>
+                        R$ {item.subtotal}
+                      </Text>
+                      {item.isParcelado && (
+                        <Text style={styles.totalGeralItem}>Total Gasto: R$ {item.totalGeral}</Text>
+                      )}
+                    </View>
+                    
+                    <View style={styles.footerActions}>
+                      <TouchableOpacity style={styles.editButton} onPress={() => abrirEdicao(item)}>
+                        <Feather name="edit-2" size={16} color="#B04FCF" />
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.descricao)}>
+                        <Feather name="trash-2" size={16} color="#FF4D4D" />
+                      </TouchableOpacity>
                     </View>
                   </View>
-                );
-              }}
-            />
-          )}
+                </View>
+              );
+            }}
+          />
         </View>
 
-        {/* RODAPÉ DE TOTAIS */}
+        {/* RODAPÉ DE TOTAIS FIXO NO FUNDO */}
         <View style={styles.subtotalContainer}>
           <View style={styles.subtotalColumn}>
             <Text style={styles.subtotalLabel}>Total a Pagar</Text>
@@ -502,7 +511,6 @@ const styles = StyleSheet.create({
   inputLabelMicro: { color: '#888', fontSize: 11, marginBottom: 6, marginLeft: 4, textTransform: 'uppercase', fontWeight: 'bold' },
   input: { height: 50, backgroundColor: '#0F0414', borderRadius: 12, paddingHorizontal: 15, fontSize: 15, color: '#FFF', borderWidth: 1, borderColor: '#2D1436', marginBottom: 15 },
   
-  // NOVOS ESTILOS PARA AS SETAS DE ROLAGEM
   scrollHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
   setasScrollBox: { flexDirection: 'row', gap: 8 },
   setaBotao: { padding: 4, backgroundColor: '#0F0414', borderRadius: 6, borderWidth: 1, borderColor: '#2D1436' },

@@ -87,7 +87,7 @@ const salariosRef = ref(db, 'salarios');
               <Text style={styles.squareCardTitle}>Lista de Compras</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('Nossas Metas')}>
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/nossasmetas')}>
               <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
                 <Feather name="star" size={22} color="#FFF" />
               </View>
