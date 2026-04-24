@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Alert, FlatList, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Alert, FlatList, KeyboardAvoidingView, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
@@ -233,9 +233,6 @@ export default function Compras() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 20, flexGrow: 1 }}
             
-            // ----------------------------------------------------
-            // AQUI ESTÃO OS ELEMENTOS QUE AGORA ROLAM JUNTO COM A LISTA
-            // ----------------------------------------------------
             ListHeaderComponent={
               <View style={{ paddingBottom: 10 }}>
                 {/* BARRA DE PESQUISA */}
@@ -257,9 +254,9 @@ export default function Compras() {
 
                 {/* BOTÕES DE AÇÃO */}
                 <View style={styles.actionRow}>
-                  <TouchableOpacity style={styles.toggleFormButton} onPress={() => formAberto ? fecharFormulario() : setFormAberto(true)}>
-                    <Feather name={formAberto ? "x" : "plus"} size={20} color="#FFF" />
-                    <Text style={styles.toggleFormText}>{formAberto ? "Cancelar" : "Novo Item"}</Text>
+                  <TouchableOpacity style={styles.toggleFormButton} onPress={() => setFormAberto(true)}>
+                    <Feather name="plus" size={20} color="#FFF" />
+                    <Text style={styles.toggleFormText}>Novo Item</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity style={styles.filterButton} onPress={() => setMenuFiltroAberto(true)}>
@@ -270,52 +267,14 @@ export default function Compras() {
                     )}
                   </TouchableOpacity>
                 </View>
-
-                {/* FORMULÁRIO */}
-                {formAberto && (
-                  <View style={styles.formContainer}>
-                    <Text style={styles.formTitle}>{itemEditando ? "Editando Item" : "Novo Item"}</Text>
-                    <TextInput style={styles.input} placeholder="Nome do item" placeholderTextColor="#666" value={nome} onChangeText={setNome} />
-                    
-                    <View style={styles.rowInputs}>
-                      <View style={styles.inputWrapper}>
-                        <Text style={styles.inputLabelMicro}>Estimado (R$)</Text>
-                        <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valor} onChangeText={(txt) => setValor(formatarInputMoeda(txt))} keyboardType="numeric" />
-                      </View>
-                      <View style={styles.inputWrapper}>
-                        <Text style={styles.inputLabelMicro}>Pago (R$)</Text>
-                        <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorPago} onChangeText={(txt) => setValorPago(formatarInputMoeda(txt))} keyboardType="numeric" />
-                      </View>
-                    </View>
-
-                    <TextInput style={styles.input} placeholder="Link do Produto (Opcional)" placeholderTextColor="#666" value={link} onChangeText={setLink} autoCapitalize="none" />
-                    <Text style={styles.label}>Prioridade (1 a 5 estrelas)</Text>
-                    {renderizarEstrelas(prioridade, true, setPrioridade)}
-                    <Text style={styles.label}>Cômodo</Text>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
-                      {COMODOS.map((c) => (
-                        <TouchableOpacity key={c} style={[styles.comodoTag, comodo === c && styles.comodoTagActive]} onPress={() => setComodo(c)}>
-                          <Text style={[styles.comodoTagText, comodo === c && styles.comodoTagTextActive]}>{c}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </ScrollView>
-
-                    <TouchableOpacity style={styles.submitButton} onPress={salvarItem}>
-                      <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Item" : "Salvar Item"}</Text>
-                    </TouchableOpacity>
-                  </View>
-                )}
               </View>
             }
 
-            // AVISO QUANDO A LISTA ESTÁ VAZIA
             ListEmptyComponent={
-              !formAberto ? (
-                <View style={styles.emptyState}>
-                  <Feather name="search" size={50} color="#2D1436" />
-                  <Text style={styles.emptyStateText}>Nenhum item encontrado.</Text>
-                </View>
-              ) : null
+              <View style={styles.emptyState}>
+                <Feather name="search" size={50} color="#2D1436" />
+                <Text style={styles.emptyStateText}>Nenhum item encontrado.</Text>
+              </View>
             }
 
             renderItem={({ item }) => {
@@ -388,7 +347,7 @@ export default function Compras() {
           />
         </View>
 
-        {/* RODAPÉ DE TOTAIS FIXO NO FUNDO */}
+        {/* RODAPÉ DE TOTAIS FIXO */}
         <View style={styles.subtotalContainer}>
           <View style={styles.subtotalColumn}>
             <Text style={styles.subtotalLabel}>Total Estimado</Text>
@@ -402,6 +361,57 @@ export default function Compras() {
         </View>
 
       </View>
+
+      {/* --- NOVO MODAL DE FORMULÁRIO (RESOLVE O PROBLEMA DO SCROLL) --- */}
+      <Modal visible={formAberto} animationType="slide" transparent>
+        <View style={styles.modalFullOverlay}>
+          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <View style={styles.formModalContainer}>
+              <View style={styles.formModalHeader}>
+                <Text style={styles.formTitle}>{itemEditando ? "Editando Item" : "Novo Item"}</Text>
+                <TouchableOpacity onPress={fecharFormulario} style={styles.closeModalButton}>
+                  <Feather name="x" size={24} color="#FFF" />
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+                <Text style={styles.inputLabelMicro}>O que vamos comprar?</Text>
+                <TextInput style={styles.input} placeholder="Nome do item" placeholderTextColor="#666" value={nome} onChangeText={setNome} />
+                
+                <View style={styles.rowInputs}>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.inputLabelMicro}>Estimado (R$)</Text>
+                    <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valor} onChangeText={(txt) => setValor(formatarInputMoeda(txt))} keyboardType="numeric" />
+                  </View>
+                  <View style={styles.inputWrapper}>
+                    <Text style={styles.inputLabelMicro}>Pago (R$)</Text>
+                    <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorPago} onChangeText={(txt) => setValorPago(formatarInputMoeda(txt))} keyboardType="numeric" />
+                  </View>
+                </View>
+
+                <Text style={styles.inputLabelMicro}>Link da Loja (Opcional)</Text>
+                <TextInput style={styles.input} placeholder="https://..." placeholderTextColor="#666" value={link} onChangeText={setLink} autoCapitalize="none" />
+                
+                <Text style={styles.label}>Prioridade (Urgência)</Text>
+                {renderizarEstrelas(prioridade, true, setPrioridade)}
+                
+                <Text style={styles.label}>Para qual cômodo?</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
+                  {COMODOS.map((c) => (
+                    <TouchableOpacity key={c} style={[styles.comodoTag, comodo === c && styles.comodoTagActive]} onPress={() => setComodo(c)}>
+                      <Text style={[styles.comodoTagText, comodo === c && styles.comodoTagTextActive]}>{c}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+
+                <TouchableOpacity style={styles.submitButton} onPress={salvarItem}>
+                  <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Item" : "Salvar Item"}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
 
       {/* MODAL DE FILTROS */}
       <Modal visible={menuFiltroAberto} animationType="fade" transparent={true} onRequestClose={() => setMenuFiltroAberto(false)}>
@@ -490,6 +500,12 @@ const styles = StyleSheet.create({
   emptyStateText: { color: '#666', fontSize: 16, marginTop: 15 },
   listArea: { flex: 1 },
 
+  // Estilos do Modal de Formulário
+  modalFullOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  formModalContainer: { backgroundColor: '#1E0A24', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 20, maxHeight: '90%', borderWidth: 1, borderColor: '#2D1436' },
+  formModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  closeModalButton: { padding: 8, backgroundColor: '#0F0414', borderRadius: 10 },
+
   subtotalContainer: { backgroundColor: '#1E0A24', padding: 15, borderRadius: 16, marginTop: 15, borderWidth: 1, borderColor: '#2D1436', flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
   subtotalColumn: { alignItems: 'center', flex: 1 },
   subtotalDivider: { width: 1, backgroundColor: '#2D1436', height: '80%' },
@@ -516,8 +532,7 @@ const styles = StyleSheet.create({
   applyFilterButton: { flex: 1, backgroundColor: '#AA319C', padding: 15, borderRadius: 12, alignItems: 'center' },
   applyFilterText: { color: '#FFF', fontWeight: 'bold' },
 
-  formContainer: { backgroundColor: '#1E0A24', padding: 20, borderRadius: 16, marginBottom: 25, borderWidth: 1, borderColor: '#2D1436' },
-  formTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 18, marginBottom: 15, textAlign: 'center' },
+  formTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 20 },
   rowInputs: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   inputWrapper: { width: '48%' },
   inputLabelMicro: { color: '#888', fontSize: 11, marginBottom: 6, marginLeft: 4, textTransform: 'uppercase', fontWeight: 'bold' },
@@ -530,8 +545,8 @@ const styles = StyleSheet.create({
   comodoTagActive: { backgroundColor: '#B04FCF', borderColor: '#B04FCF' },
   comodoTagText: { color: '#888', fontWeight: '600', fontSize: 14 },
   comodoTagTextActive: { color: '#FFF' },
-  submitButton: { backgroundColor: '#B04FCF', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-  submitButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+  submitButton: { backgroundColor: '#B04FCF', height: 60, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  submitButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 18 },
   
   itemCard: { backgroundColor: '#1E0A24', padding: 18, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436' },
   itemCardComprado: { opacity: 0.7 }, 

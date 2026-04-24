@@ -22,7 +22,7 @@ const elementosFundo = Array.from({ length: 35 }).map((_, i) => ({
   left: Math.random() * width,
   top: Math.random() * height,
   fontSize: Math.random() * 40 + 20, 
-  opacity: Math.random() * 0.15 + 0.05, // AUMENTADO: Agora varia de 5% a 20%
+  opacity: Math.random() * 0.15 + 0.05, 
   rotacao: `${Math.random() * 60 - 30}deg` 
 }));
 
@@ -39,7 +39,7 @@ function FundoFinanceiro() {
             top: el.top,
             fontSize: el.fontSize,
             opacity: el.opacity,
-            color: '#B04FCF', // A cor roxa neon do app
+            color: '#B04FCF', 
             fontWeight: '900',
             transform: [{ rotate: el.rotacao }]
           }}
@@ -65,14 +65,14 @@ export default function Home() {
     const unsubscribe = onValue(listaRef, (snapshot) => {
       const dados = snapshot.val();
       if (dados) {
-        // Conta quantos itens existem dentro do banco de dados
         const quantidade = Object.keys(dados).length;
         setQtdItensLista(quantidade);
       } else {
-        setQtdItensLista(0); // Se não tiver nada, fica 0
+        setQtdItensLista(0);
       }
     });
-const salariosRef = ref(db, 'salarios');
+
+    const salariosRef = ref(db, 'salarios');
     const unsubscribeSalarios = onValue(salariosRef, (snapshot) => {
       const dados = snapshot.val();
       if (dados && dados.totalEntradas) {
@@ -83,7 +83,7 @@ const salariosRef = ref(db, 'salarios');
     });
 
     return () => {
-
+      unsubscribe();
       unsubscribeSalarios();
     };
   }, []);
@@ -111,19 +111,19 @@ const salariosRef = ref(db, 'salarios');
           {/* Grade de Menu */}
           <View style={styles.gridContainer}>
             
-           <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/visaogeral')}>
-  <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
-    <Feather name="pie-chart" size={22} color="#FFF" />
-  </View>
-  <Text style={styles.squareCardTitle}>Visão Geral</Text>
-</TouchableOpacity>
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/visaogeral')}>
+              <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
+                <Feather name="pie-chart" size={22} color="#FFF" />
+              </View>
+              <Text style={styles.squareCardTitle}>Visão Geral</Text>
+            </TouchableOpacity>
 
-<TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/gestaogastos')}>
-  <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
-    <Feather name="plus-circle" size={22} color="#FFF" />
-  </View>
-  <Text style={styles.squareCardTitle}>Gestão de Gastos</Text>
-</TouchableOpacity>
+            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/gestaogastos')}>
+              <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
+                <Feather name="plus-circle" size={22} color="#FFF" />
+              </View>
+              <Text style={styles.squareCardTitle}>Gestão de Gastos</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/compras')}>
               <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
@@ -139,9 +139,12 @@ const salariosRef = ref(db, 'salarios');
               <Text style={styles.squareCardTitle}>Nossas Metas</Text>
             </TouchableOpacity>
 
-            {/* NOVO BOTÃO: SALÁRIOS */}
-            <TouchableOpacity style={styles.squareCard} onPress={() => navegarPara('/salarios')}>
-              <View style={[styles.iconCircle, { backgroundColor: '#AA319C' }]}>
+            {/* CARD DE SALÁRIO: ALTERADO PARA OCUPAR 100% DA LARGURA */}
+            <TouchableOpacity 
+              style={[styles.squareCard, { width: '100%' }]} 
+              onPress={() => navegarPara('/salarios')}
+            >
+              <View style={[styles.iconCircle, { backgroundColor: '#B04FCF' }]}>
                 <Feather name="dollar-sign" size={22} color="#FFF" />
               </View>
               <Text style={styles.squareCardTitle}>Salários</Text>
@@ -155,20 +158,17 @@ const salariosRef = ref(db, 'salarios');
             
             <View style={styles.footerGrid}>
               
-              {/* 1. ENTRADAS */}
-<View style={styles.infoBox}>
-  <View style={styles.infoIconRow}>
-    <Feather name="trending-up" size={16} color="#00E676" />
-    <Text style={[styles.infoTag, { color: '#00E676' }]}>Entradas</Text>
-  </View>
-  {/* AQUI ESTÁ A MÁGICA: */}
-  <Text style={styles.infoValor}>
-    {totalEntradas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-  </Text>
-  <Text style={styles.infoDesc}>Receitas do mês</Text>
-</View>
+              <View style={styles.infoBox}>
+                <View style={styles.infoIconRow}>
+                  <Feather name="trending-up" size={16} color="#00E676" />
+                  <Text style={[styles.infoTag, { color: '#00E676' }]}>Entradas</Text>
+                </View>
+                <Text style={styles.infoValor}>
+                  {totalEntradas.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </Text>
+                <Text style={styles.infoDesc}>Receitas do mês</Text>
+              </View>
 
-              {/* 2. SAÍDAS */}
               <View style={styles.infoBox}>
                 <View style={styles.infoIconRow}>
                   <Feather name="trending-down" size={16} color="#FF3366" />
@@ -178,7 +178,6 @@ const salariosRef = ref(db, 'salarios');
                 <Text style={styles.infoDesc}>Gastos este mês</Text>
               </View>
 
-              {/* 3. METAS */}
               <View style={styles.infoBox}>
                 <View style={styles.infoIconRow}>
                   <Feather name="target" size={16} color="#AA319C" />
@@ -188,13 +187,11 @@ const salariosRef = ref(db, 'salarios');
                 <Text style={styles.infoDesc}>Poupança Casal</Text>
               </View>
 
-              {/* 4. QUANTIDADE DE PRODUTOS (AGORA DINÂMICA!) */}
               <View style={styles.infoBox}>
                 <View style={styles.infoIconRow}>
                   <Feather name="shopping-cart" size={16} color="#B04FCF" />
                   <Text style={[styles.infoTag, { color: '#B04FCF' }]}>Na Lista</Text>
                 </View>
-                {/* Aqui colocamos a variável que pega do banco de dados */}
                 <Text style={styles.infoValor}>{qtdItensLista} Itens</Text>
                 <Text style={styles.infoDesc}>Para comprar</Text>
               </View>
