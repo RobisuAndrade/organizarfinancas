@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, Image, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, ref } from 'firebase/database';
@@ -137,13 +137,7 @@ export default function Home() {
               <Text style={styles.titulo}>Finanças{"\n"}Robinho & Vanessinha</Text>
               <View style={styles.linhaDecorativa} />
             </View>
-            <View style={styles.logoContainer}>
-              <Image 
-                source={require('../../assets/images/logo-rv.png')} 
-                style={styles.logoImage} 
-                resizeMode="cover" 
-              />
-            </View>
+            {/* Espaço para logo ou avatar */}
           </View>
 
           <Text style={styles.sectionTitle}>Menu Principal</Text>
