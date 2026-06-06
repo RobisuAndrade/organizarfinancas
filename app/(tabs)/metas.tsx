@@ -1,4 +1,4 @@
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Animated, FlatList, KeyboardAvoidingView, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -6,6 +6,9 @@ import { Alert, Animated, FlatList, KeyboardAvoidingView, Modal, SafeAreaView, S
 // Importações do Firebase
 import { onValue, push, ref, set } from 'firebase/database';
 import { db } from '../../firebaseConfig';
+
+// Importação da nossa Calculadora Global
+import Calculadora from './calculadora';
 
 // ----------------------------------------------------
 // CONFIGURAÇÃO DA META
@@ -36,6 +39,9 @@ export default function NossasMetas() {
   const [contaSelecionada, setContaSelecionada] = useState<'ROBINHO' | 'VANESSINHA'>('ROBINHO');
   const [valorInput, setValorInput] = useState('');
   const [descricao, setDescricao] = useState('');
+
+  // Estado da Calculadora
+  const [calcAberto, setCalcAberto] = useState(false);
 
   useEffect(() => {
     // Animação de entrada
@@ -256,7 +262,7 @@ export default function NossasMetas() {
           }
         />
 
-        {/* MODAL DE TRANSAÇÃO (MANTIDO INTACTO) */}
+        {/* MODAL DE TRANSAÇÃO */}
         <Modal visible={modalAberto} transparent animationType="slide">
           <View style={styles.modalOverlay}>
             <KeyboardAvoidingView behavior="padding" style={{ width: '100%' }}>
@@ -311,6 +317,19 @@ export default function NossasMetas() {
         </Modal>
 
       </Animated.View>
+
+      {/* BOTÃO FLUTUANTE DA CALCULADORA */}
+      <TouchableOpacity 
+        style={styles.fabCalculadora} 
+        activeOpacity={0.8} 
+        onPress={() => setCalcAberto(true)}
+      >
+        <MaterialIcons name="calculate" size={24} color="#FFF" />
+      </TouchableOpacity>
+
+      {/* COMPONENTE DA CALCULADORA */}
+      <Calculadora visivel={calcAberto} fechar={() => setCalcAberto(false)} />
+
     </SafeAreaView>
   );
 }
@@ -384,5 +403,26 @@ const styles = StyleSheet.create({
   btnCancelar: { padding: 15, flex: 1, alignItems: 'center', backgroundColor: '#0F0414', borderRadius: 14, marginRight: 10, borderWidth: 1, borderColor: '#2D1436' },
   btnCancelarText: { color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
   btnSalvar: { backgroundColor: '#B04FCF', padding: 15, flex: 1, alignItems: 'center', borderRadius: 14 },
-  btnSalvarText: { color: '#FFF', fontWeight: 'bold', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 }
+  btnSalvarText: { color: '#FFF', fontWeight: 'bold', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
+
+  // Botão flutuante da Calculadora
+  fabCalculadora: {
+    position: 'absolute',
+    bottom: 30,
+    right: 20,
+    width: 56,
+    height: 56,
+    backgroundColor: '#B04FCF',
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#B04FCF',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 6,
+    zIndex: 100,
+    borderWidth: 1,
+    borderColor: '#D475EE'
+  }
 });
