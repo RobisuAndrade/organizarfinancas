@@ -4,7 +4,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { db } from '../firebaseConfig';
-import { useDialogo } from '../hooks/useDialogo';
+import { DialogoNoModal, useDialogo } from '../hooks/useDialogo';
 import { categorizarProduto, infoCategoria } from '../utils/categoriasMercado';
 import LeitorNota from './LeitorNota';
 
@@ -34,6 +34,8 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   const [salvando, setSalvando] = useState(false);
   const webviewRef = useRef<WebView>(null);
   const jaProcessou = useRef(false);
+  // Muda toda vez que a janela é fechada/reiniciada — respostas atrasadas de uma leitura antiga são ignoradas
+  const sessao = useRef(0);
   const { avisar, confirmar } = useDialogo();
   // Tentar de novo: muda a "key" do WebView para recarregar a nota do zero
   const [tentativa, setTentativa] = useState(0);
@@ -61,6 +63,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
 
   // Pergunta se quer dar um nome mais simples pro mercado (só na 1ª vez que aparece esse CNPJ)
   const perguntarNomeMercado = async (cnpjLimpo: string, base: DadosNota) => {
+    const sessaoAtual = sessao.current;
     const quer = await confirmar({
       titulo: 'Mercado novo',
       mensagem: `A nota veio registrada como "${base.mercado}". Quer colocar um nome mais simples pra esse mercado (ex: CESTO)?`,
@@ -68,6 +71,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
       textoCancelar: 'Manter esse',
       icone: 'shopping-bag',
     });
+    if (sessaoAtual !== sessao.current) return; // a janela foi fechada enquanto a pergunta estava aberta
     if (quer) {
       setNomeDigitado('');
       setEtapa('nomeando');
@@ -253,6 +257,8 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   };
 
   const resetarEFechar = () => {
+    sessao.current += 1;
+    setProblemaPagina(null);
     setEtapa('camera');
     setUrlNota('');
     setDadosNota(null);
@@ -405,6 +411,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
           )}
         </SafeAreaView>
       </View>
+      <DialogoNoModal />
     </Modal>
   );
 }

@@ -6,7 +6,7 @@ import { Animated, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollVi
 // Importações do Firebase
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../../firebaseConfig';
-import { useDialogo } from '../../hooks/useDialogo';
+import { DialogoNoModal, useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
 // LISTAS DE OPÇÕES E CORES
@@ -434,6 +434,7 @@ export default function GestaoGastos() {
               </View>
             </KeyboardAvoidingView>
           </View>
+          <DialogoNoModal />
         </Modal>
 
         {/* NOVO MODAL DE FILTROS (BOTTOM SHEET) */}

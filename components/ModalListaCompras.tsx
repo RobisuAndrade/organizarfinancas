@@ -3,7 +3,7 @@ import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
-import { useDialogo } from '../hooks/useDialogo';
+import { DialogoNoModal, useDialogo } from '../hooks/useDialogo';
 import { chaveProduto, normalizar } from '../utils/categoriasMercado';
 import { formatarMoeda } from '../utils/formatadores';
 
@@ -301,6 +301,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
           )}
         </SafeAreaView>
       </View>
+      <DialogoNoModal />
     </Modal>
   );
 }

@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import LeitorCodigoBarras from '../../components/LeitorCodigoBarras';
 import { db } from '../../firebaseConfig';
-import { useDialogo } from '../../hooks/useDialogo';
+import { DialogoNoModal, useDialogo } from '../../hooks/useDialogo';
 import { CATEGORIAS_MERCADO, chaveProduto, infoCategoria } from '../../utils/categoriasMercado';
 import { formatarMoeda } from '../../utils/formatadores';
 
@@ -582,6 +582,7 @@ export default function Mercado() {
             </TouchableOpacity>
           </View>
         </View>
+        <DialogoNoModal />
       </Modal>
 
       {/* MODAL: ESCOLHER CATEGORIA */}
@@ -628,6 +629,7 @@ export default function Mercado() {
             </TouchableOpacity>
           </View>
         </View>
+        <DialogoNoModal />
       </Modal>
     </SafeAreaView>
   );

@@ -59,15 +59,86 @@ const Ctx = createContext<ContextoDialogo>({
 
 export const useDialogo = () => useContext(Ctx);
 
+// Contexto interno: deixa as telas com Modal "hospedarem" o diálogo dentro delas.
+// (Um Modal do Android pode esconder outro Modal aberto por cima — por isso o
+// diálogo é desenhado dentro do próprio Modal que estiver aberto.)
+interface CtxInternoTipo {
+  ativo: Item | null;
+  hosts: number[];
+  registrar: (id: number) => () => void;
+  encerrar: (resultado: boolean) => void;
+}
+const CtxInterno = createContext<CtxInternoTipo>({
+  ativo: null,
+  hosts: [],
+  registrar: () => () => {},
+  encerrar: () => {},
+});
+
+let proximoIdHost = 1;
+
+/** Coloque <DialogoNoModal /> como último filho do conteúdo de qualquer <Modal> que possa disparar avisos. */
+export function DialogoNoModal() {
+  const { ativo, hosts, registrar, encerrar } = useContext(CtxInterno);
+  const id = useRef(proximoIdHost++).current;
+
+  useEffect(() => registrar(id), [registrar, id]);
+
+  if (!ativo || hosts[hosts.length - 1] !== id) return null;
+  return (
+    <View style={[StyleSheet.absoluteFill, styles.fundo, styles.sobreposto]}>
+      <CaixaDialogo key={ativo.id} item={ativo} encerrar={encerrar} />
+    </View>
+  );
+}
+
+function CaixaDialogo({ item, encerrar }: { item: Item; encerrar: (resultado: boolean) => void }) {
+  const escala = useRef(new Animated.Value(0.9)).current;
+  const opacidade = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(escala, { toValue: 1, useNativeDriver: true, friction: 8, tension: 90 }),
+      Animated.timing(opacidade, { toValue: 1, duration: 160, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  return (
+    <Animated.View style={[styles.caixa, { opacity: opacidade, transform: [{ scale: escala }] }]}>
+      <View style={[styles.circuloIcone, { backgroundColor: `${item.cor}22`, borderColor: `${item.cor}55` }]}>
+        <Feather name={item.icone} size={26} color={item.cor} />
+      </View>
+
+      <Text style={styles.titulo}>{item.titulo}</Text>
+      {!!item.mensagem && <Text style={styles.mensagem}>{item.mensagem}</Text>}
+
+      <View style={styles.linhaBotoes}>
+        {item.modo === 'confirmar' && (
+          <TouchableOpacity style={[styles.botao, styles.botaoCancelar]} onPress={() => encerrar(false)} activeOpacity={0.8}>
+            <Text style={styles.textoCancelar}>{item.textoCancelar}</Text>
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.botao, { backgroundColor: item.perigo ? Colors.danger : Colors.lime }]}
+          onPress={() => encerrar(true)}
+          activeOpacity={0.85}
+        >
+          <Text style={[styles.textoConfirmar, { color: item.perigo ? '#FFFFFF' : Colors.background }]}>
+            {item.textoConfirmar}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    </Animated.View>
+  );
+}
+
 export function DialogoProvider({ children }: { children: ReactNode }) {
   const fila = useRef<Item[]>([]);
   const ativoRef = useRef<Item | null>(null);
   const ultimoRef = useRef<Item | null>(null);
   const contador = useRef(0);
   const [ativo, setAtivo] = useState<Item | null>(null);
-
-  const escala = useRef(new Animated.Value(0.9)).current;
-  const opacidade = useRef(new Animated.Value(0)).current;
+  const [hosts, setHosts] = useState<number[]>([]);
 
   const mostrarProximo = useCallback(() => {
     const prox = fila.current.shift() ?? null;
@@ -129,68 +200,46 @@ export function DialogoProvider({ children }: { children: ReactNode }) {
     });
   }, [enfileirar]);
 
-  // Animação de entrada toda vez que um diálogo novo aparece
-  useEffect(() => {
-    if (!ativo) return;
-    ultimoRef.current = ativo;
-    escala.setValue(0.9);
-    opacidade.setValue(0);
-    Animated.parallel([
-      Animated.spring(escala, { toValue: 1, useNativeDriver: true, friction: 8, tension: 90 }),
-      Animated.timing(opacidade, { toValue: 1, duration: 160, useNativeDriver: true }),
-    ]).start();
-  }, [ativo?.id]);
+  const registrar = useCallback((id: number) => {
+    setHosts((h) => [...h, id]);
+    return () => setHosts((h) => h.filter((x) => x !== id));
+  }, []);
 
   const valor = useMemo(() => ({ avisar, confirmar }), [avisar, confirmar]);
 
-  // Mantém o conteúdo na tela durante o fade-out do Modal
-  const item = ativo ?? ultimoRef.current;
+  const interno = useMemo(
+    () => ({ ativo, hosts, registrar, encerrar }),
+    [ativo, hosts, registrar, encerrar]
+  );
+
+  // Se alguma tela com Modal está aberta, ela mesma desenha o diálogo (DialogoNoModal).
+  // Senão, usamos um Modal próprio aqui.
+  const usarModalProprio = !!ativo && hosts.length === 0;
+  const itemModal = ativo ?? ultimoRef.current;
+  if (ativo) ultimoRef.current = ativo;
 
   return (
     <Ctx.Provider value={valor}>
-      {children}
-      <Modal
-        visible={!!ativo}
-        transparent
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => encerrar(false)}
-      >
-        <View style={styles.fundo}>
-          {item && (
-            <Animated.View style={[styles.caixa, { opacity: opacidade, transform: [{ scale: escala }] }]}>
-              <View style={[styles.circuloIcone, { backgroundColor: `${item.cor}22`, borderColor: `${item.cor}55` }]}>
-                <Feather name={item.icone} size={26} color={item.cor} />
-              </View>
-
-              <Text style={styles.titulo}>{item.titulo}</Text>
-              {!!item.mensagem && <Text style={styles.mensagem}>{item.mensagem}</Text>}
-
-              <View style={styles.linhaBotoes}>
-                {item.modo === 'confirmar' && (
-                  <TouchableOpacity style={[styles.botao, styles.botaoCancelar]} onPress={() => encerrar(false)} activeOpacity={0.8}>
-                    <Text style={styles.textoCancelar}>{item.textoCancelar}</Text>
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity
-                  style={[styles.botao, { backgroundColor: item.perigo ? Colors.danger : Colors.lime }]}
-                  onPress={() => encerrar(true)}
-                  activeOpacity={0.85}
-                >
-                  <Text style={[styles.textoConfirmar, { color: item.perigo ? '#FFFFFF' : Colors.background }]}>
-                    {item.textoConfirmar}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </Animated.View>
-          )}
-        </View>
-      </Modal>
+      <CtxInterno.Provider value={interno}>
+        {children}
+        <Modal
+          visible={usarModalProprio}
+          transparent
+          animationType="fade"
+          statusBarTranslucent
+          onRequestClose={() => encerrar(false)}
+        >
+          <View style={styles.fundo}>
+            {usarModalProprio && itemModal && <CaixaDialogo key={itemModal.id} item={itemModal} encerrar={encerrar} />}
+          </View>
+        </Modal>
+      </CtxInterno.Provider>
     </Ctx.Provider>
   );
 }
 
 const styles = StyleSheet.create({
+  sobreposto: { zIndex: 9999, elevation: 9999 },
   fundo: { flex: 1, backgroundColor: 'rgba(0,0,0,0.78)', justifyContent: 'center', alignItems: 'center', padding: 28 },
   caixa: {
     width: '100%',

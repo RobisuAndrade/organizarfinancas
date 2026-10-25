@@ -6,7 +6,7 @@ import { Animated, FlatList, KeyboardAvoidingView, Modal, SafeAreaView, ScrollVi
 // Importações do Firebase
 import { onValue, push, ref, set } from 'firebase/database';
 import { db } from '../../firebaseConfig';
-import { useDialogo } from '../../hooks/useDialogo';
+import { DialogoNoModal, useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
 // CONFIGURAÇÃO DA META
@@ -315,6 +315,7 @@ export default function NossasMetas() {
               </View>
             </KeyboardAvoidingView>
           </View>
+          <DialogoNoModal />
         </Modal>
 
       </Animated.View>
