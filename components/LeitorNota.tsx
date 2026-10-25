@@ -9,10 +9,10 @@ interface LeitorNotaProps {
   aoCancelar: () => void;
 }
 
-// Lado do quadrado de leitura (acompanha a largura da tela, com limite)
-const LADO = Math.min(Dimensions.get('window').width * 0.66, 290);
+// A câmera aparece SOMENTE dentro deste quadrado (o resto da tela fica liso)
+const LADO = Math.min(Dimensions.get('window').width * 0.78, 330);
 const ESPESSURA = 4;
-const TAMANHO_CANTO = 34;
+const TAMANHO_CANTO = 36;
 const NIVEIS_ZOOM = [0, 0.08, 0.16];
 
 export default function LeitorNota({ aoLerCodigo, aoCancelar }: LeitorNotaProps) {
@@ -66,22 +66,20 @@ export default function LeitorNota({ aoLerCodigo, aoCancelar }: LeitorNotaProps)
 
   return (
     <View style={styles.container}>
-      <CameraView
-        style={StyleSheet.absoluteFill}
-        facing="back"
-        autofocus="on"
-        zoom={NIVEIS_ZOOM[nivelZoom]}
-        enableTorch={lanterna}
-        barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-        onBarcodeScanned={leu ? undefined : aoEscanear}
-      />
+      <View style={styles.centroTela}>
+        {/* Única câmera da tela: só existe dentro do quadrado */}
+        <View style={styles.quadrado}>
+          <CameraView
+            style={StyleSheet.absoluteFill}
+            facing="back"
+            autofocus="on"
+            zoom={NIVEIS_ZOOM[nivelZoom]}
+            enableTorch={lanterna}
+            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+            onBarcodeScanned={leu ? undefined : aoEscanear}
+          />
 
-      {/* Máscara escura em volta do quadrado, para dar foco no que importa */}
-      <View style={styles.mascara} pointerEvents="none">
-        <View style={styles.escuroTopo} />
-        <View style={styles.linhaMeio}>
-          <View style={styles.escuroLado} />
-          <View style={{ width: LADO, height: LADO }}>
+          <View pointerEvents="none" style={StyleSheet.absoluteFill}>
             <View style={[styles.canto, styles.cantoTE, { borderColor: corMira }]} />
             <View style={[styles.canto, styles.cantoTD, { borderColor: corMira }]} />
             <View style={[styles.canto, styles.cantoBE, { borderColor: corMira }]} />
@@ -90,24 +88,20 @@ export default function LeitorNota({ aoLerCodigo, aoCancelar }: LeitorNotaProps)
               <Animated.View
                 style={[
                   styles.linhaVarredura,
-                  { transform: [{ translateY: linha.interpolate({ inputRange: [0, 1], outputRange: [8, LADO - 12] }) }] },
+                  { transform: [{ translateY: linha.interpolate({ inputRange: [0, 1], outputRange: [10, LADO - 14] }) }] },
                 ]}
               />
             )}
             {leu && (
               <View style={styles.checkCentro}>
-                <Feather name="check" size={44} color={Colors.success} />
+                <Feather name="check" size={48} color={Colors.success} />
               </View>
             )}
           </View>
-          <View style={styles.escuroLado} />
         </View>
-        <View style={styles.escuroBase}>
-          <Text style={styles.dica}>
-            {leu ? 'QR Code lido!' : 'Centralize o QR Code da nota dentro do quadrado'}
-          </Text>
-          {!leu && <Text style={styles.dicaPequena}>Se não ler, afaste um pouco o celular e use a lanterna</Text>}
-        </View>
+
+        <Text style={styles.dica}>{leu ? 'QR Code lido!' : 'Centralize o QR Code da nota dentro do quadrado'}</Text>
+        {!leu && <Text style={styles.dicaPequena}>Se não ler, afaste um pouco o celular ou ligue a lanterna</Text>}
       </View>
 
       {/* Botões de apoio */}
@@ -128,32 +122,27 @@ export default function LeitorNota({ aoLerCodigo, aoCancelar }: LeitorNotaProps)
   );
 }
 
-const ESCURO = 'rgba(0,0,0,0.62)';
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000' },
-  centro: { justifyContent: 'center', alignItems: 'center', padding: 30, backgroundColor: Colors.surface },
-  mascara: { ...StyleSheet.absoluteFillObject },
-  escuroTopo: { flex: 1, backgroundColor: ESCURO },
-  linhaMeio: { flexDirection: 'row' },
-  escuroLado: { flex: 1, backgroundColor: ESCURO },
-  escuroBase: { flex: 1.3, backgroundColor: ESCURO, alignItems: 'center', paddingTop: 22, paddingHorizontal: 30 },
+  container: { flex: 1, backgroundColor: 'transparent' },
+  centro: { justifyContent: 'center', alignItems: 'center', padding: 30 },
+  centroTela: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 80, paddingHorizontal: 24 },
+  quadrado: { width: LADO, height: LADO, borderRadius: 26, overflow: 'hidden', backgroundColor: '#000', marginBottom: 26 },
   dica: { color: Colors.text, fontSize: 15, fontWeight: 'bold', textAlign: 'center' },
   dicaPequena: { color: Colors.muted, fontSize: 12, textAlign: 'center', marginTop: 8 },
 
   canto: { position: 'absolute', width: TAMANHO_CANTO, height: TAMANHO_CANTO },
-  cantoTE: { top: 0, left: 0, borderTopWidth: ESPESSURA, borderLeftWidth: ESPESSURA, borderTopLeftRadius: 16 },
-  cantoTD: { top: 0, right: 0, borderTopWidth: ESPESSURA, borderRightWidth: ESPESSURA, borderTopRightRadius: 16 },
-  cantoBE: { bottom: 0, left: 0, borderBottomWidth: ESPESSURA, borderLeftWidth: ESPESSURA, borderBottomLeftRadius: 16 },
-  cantoBD: { bottom: 0, right: 0, borderBottomWidth: ESPESSURA, borderRightWidth: ESPESSURA, borderBottomRightRadius: 16 },
-  linhaVarredura: { position: 'absolute', left: 14, right: 14, height: 2, borderRadius: 1, backgroundColor: Colors.lime, opacity: 0.85 },
-  checkCentro: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,230,118,0.12)', borderRadius: 16 },
+  cantoTE: { top: 10, left: 10, borderTopWidth: ESPESSURA, borderLeftWidth: ESPESSURA, borderTopLeftRadius: 16 },
+  cantoTD: { top: 10, right: 10, borderTopWidth: ESPESSURA, borderRightWidth: ESPESSURA, borderTopRightRadius: 16 },
+  cantoBE: { bottom: 10, left: 10, borderBottomWidth: ESPESSURA, borderLeftWidth: ESPESSURA, borderBottomLeftRadius: 16 },
+  cantoBD: { bottom: 10, right: 10, borderBottomWidth: ESPESSURA, borderRightWidth: ESPESSURA, borderBottomRightRadius: 16 },
+  linhaVarredura: { position: 'absolute', left: 18, right: 18, height: 2, borderRadius: 1, backgroundColor: Colors.lime, opacity: 0.85 },
+  checkCentro: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,230,118,0.18)' },
 
   barraBotoes: { position: 'absolute', bottom: 20, left: 20, right: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  botaoRedondo: { width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(28,29,37,0.92)', borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', alignItems: 'center' },
+  botaoRedondo: { width: 50, height: 50, borderRadius: 25, backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, justifyContent: 'center', alignItems: 'center' },
   botaoRedondoAtivo: { backgroundColor: Colors.lime, borderColor: Colors.lime },
   textoZoom: { color: Colors.text, fontWeight: '900', fontSize: 14 },
-  botaoCancelar: { backgroundColor: 'rgba(28,29,37,0.92)', borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 25 },
+  botaoCancelar: { backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 25 },
   textoCancelar: { color: Colors.danger, fontWeight: 'bold', fontSize: 14 },
 
   textoPermissao: { color: Colors.text, fontSize: 14, textAlign: 'center', marginTop: 16, marginBottom: 20 },

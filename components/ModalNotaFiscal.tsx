@@ -24,7 +24,12 @@ interface DadosNota {
   data: string;
   total: number;
   produtos: ProdutoNota[];
+  esperado?: number; // quantidade de itens que a própria nota diz ter (se a página informar)
 }
+
+// Identificação de um Chrome comum de celular (o navegador embutido do app costuma ser barrado mais vezes)
+const USER_AGENT_CHROME =
+  'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 
 export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean; fechar: () => void }) {
   const [etapa, setEtapa] = useState<'camera' | 'extraindo' | 'nomeando' | 'resultado'>('camera');
@@ -40,12 +45,23 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   // Tentar de novo: muda a "key" do WebView para recarregar a nota do zero
   const [tentativa, setTentativa] = useState(0);
   const [problemaPagina, setProblemaPagina] = useState<'bloqueio' | 'rede' | null>(null);
+  const [progresso, setProgresso] = useState<{ lidos: number; esperado: number } | null>(null);
 
-  const tentarDeNovo = () => {
+  // Quantas vezes já tentamos sozinhos depois de a Sefaz recusar o acesso
+  const autoTentativas = useRef(0);
+
+  // "Navegador limpo": apaga cache e cookies e abre a nota de novo do zero
+  // (o WebView é recriado em modo anônimo, então nada fica guardado entre as tentativas)
+  const recarregarLimpo = () => {
     jaProcessou.current = false;
     setProblemaPagina(null);
+    setProgresso(null);
+    try {
+      (webviewRef.current as any)?.clearCache?.(true);
+    } catch (e) {}
     setTentativa(t => t + 1);
   };
+  const tentarDeNovo = recarregarLimpo;
 
   // Salva (ou atualiza) o apelido desse CNPJ e segue para a tela de resultado
   const salvarApelidoEContinuar = async (cnpjLimpo: string, nomeEscolhido: string, base: DadosNota) => {
@@ -126,6 +142,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   };
 
   const aoLerQrCode = (url: string) => {
+    autoTentativas.current = 0;
     setUrlNota(url);
     jaProcessou.current = false;
     if (Platform.OS === 'web') {
@@ -144,23 +161,33 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
     }
   };
 
-  const scriptExtratorSefaz = `
+  // Script que roda dentro da página da Sefaz. Em vez de ler a primeira vez que vê algum produto,
+  // ele ESPERA a lista terminar de carregar (celulares/internet lentos mostram os itens aos poucos).
+  const montarScript = (forcar: boolean) => `
     (function() {
-      // Firewall da Sefaz recusou o acesso? Avisa o app para mostrar o botão de tentar de novo
-      var textoPagina = (document.body && document.body.innerText) || '';
-      if (/requested URL was rejected/i.test(textoPagina)) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({ rejeitado: true }));
-        return;
+      if (${forcar}) window.__forcarLeitura = true;
+      if (window.__leituraNotaAtiva) return;
+      window.__leituraNotaAtiva = true;
+
+      var inicio = Date.now();
+      var ultimaQtd = -1;
+      var estavelDesde = Date.now();
+      var enviado = false;
+
+      function enviar(obj) { window.ReactNativeWebView.postMessage(JSON.stringify(obj)); }
+
+      function itensEsperados() {
+        var t = (document.body && document.body.innerText) || '';
+        var m = t.match(/Qtd\\.?\\s*total\\s*de\\s*itens:?\\s*(\\d+)/i);
+        return m ? parseInt(m[1], 10) : 0;
       }
 
-      function extrair() {
+      function extrair(esperado) {
         const linhas = document.querySelectorAll('tr[id^="Item"]');
-        if (linhas.length === 0) return false;
-
         const mercadoEl = document.querySelector('.txtTopo') || document.querySelector('#u20');
         const mercado = mercadoEl ? mercadoEl.innerText.trim() : 'Mercado Desconhecido';
 
-        // Procura o CNPJ do emitente em qualquer lugar do texto da página
+        // CNPJ do emitente em qualquer lugar do texto da página
         const textoCompleto = document.body.innerText || '';
         const matchCnpj = textoCompleto.match(/CNPJ:?\\s*([0-9]{2}\\.?[0-9]{3}\\.?[0-9]{3}\\/?[0-9]{4}-?[0-9]{2})/);
         const cnpj = matchCnpj ? matchCnpj[1].replace(/\\D/g, '') : '';
@@ -169,6 +196,8 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
         const matchData = textoCompleto.match(/Emiss[ãa]o:?\\s*(\\d{2}\\/\\d{2}\\/\\d{4})/i);
         const dataEmissao = matchData ? matchData[1] : new Date().toLocaleDateString('pt-BR');
 
+        const limparNumero = (txt) => parseFloat(txt.replace(/\\./g, '').replace(',', '.')) || 0;
+
         const produtos = [];
         linhas.forEach(linha => {
           const nome = linha.querySelector('.txtTit')?.innerText?.trim() || 'Produto';
@@ -176,9 +205,6 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
           const unTxt = linha.querySelector('.RUN')?.innerText?.replace('UN:', '').trim() || 'UN';
           const vlUnitTxt = linha.querySelector('.RvlUnit')?.innerText?.replace('Vl. Unit.:', '').trim() || '0';
           const vlTotalTxt = linha.querySelector('.valor')?.innerText?.trim() || '0';
-
-          const limparNumero = (txt) => parseFloat(txt.replace(/\\./g, '').replace(',', '.')) || 0;
-
           produtos.push({
             nome,
             qtd: limparNumero(qtdTxt),
@@ -189,21 +215,45 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
         });
 
         const totalEl = document.querySelector('.txtMax');
-        const total = totalEl ? parseFloat(totalEl.innerText.replace(/\\./g, '').replace(',', '.')) : 0;
+        const total = totalEl ? limparNumero(totalEl.innerText) : 0;
 
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          sucesso: true,
-          dados: { mercado, cnpj, data: dataEmissao, total, produtos }
-        }));
-        return true;
+        enviado = true;
+        enviar({ sucesso: true, dados: { mercado, cnpj, data: dataEmissao, total, produtos, esperado } });
       }
 
-      if (!extrair()) {
-        setTimeout(extrair, 2000);
+      function ciclo() {
+        if (enviado) return;
+        var texto = (document.body && document.body.innerText) || '';
+
+        // Firewall da Sefaz recusou o acesso? Avisa o app (botão Tentar de novo)
+        if (/requested URL was rejected/i.test(texto)) {
+          enviar({ rejeitado: true });
+          window.__leituraNotaAtiva = false;
+          return;
+        }
+
+        var qtd = document.querySelectorAll('tr[id^="Item"]').length;
+        var esperado = itensEsperados();
+        if (qtd !== ultimaQtd) { ultimaQtd = qtd; estavelDesde = Date.now(); }
+        var estavel = Date.now() - estavelDesde;
+
+        enviar({ progresso: { lidos: qtd, esperado: esperado } });
+
+        // Pronto quando: chegou a quantidade que a nota informa, ou a lista parou de crescer por alguns segundos
+        var completo = qtd > 0 && (esperado > 0 ? (qtd >= esperado && estavel >= 1500) : estavel >= 6000);
+        var estourouTempo = Date.now() - inicio > 150000; // até 2min30 de espera
+        if (qtd > 0 && (window.__forcarLeitura || completo || estourouTempo)) {
+          extrair(esperado);
+          return;
+        }
+        setTimeout(ciclo, 1000);
       }
+
+      ciclo();
     })();
     true;
   `;
+  const scriptExtratorSefaz = montarScript(false);
 
   const receberDadosDaTela = (event: any) => {
     if (jaProcessou.current) return; // evita processar a mesma nota duas vezes
@@ -211,6 +261,18 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
       const resposta = JSON.parse(event.nativeEvent.data);
       if (resposta.rejeitado) {
         setProblemaPagina('bloqueio');
+        // Tenta sozinho até 2 vezes, esperando um pouco mais a cada vez (não "martelar" o firewall)
+        if (autoTentativas.current < 2) {
+          autoTentativas.current += 1;
+          const sessaoAtual = sessao.current;
+          setTimeout(() => {
+            if (sessaoAtual === sessao.current) recarregarLimpo();
+          }, autoTentativas.current * 5000);
+        }
+        return;
+      }
+      if (resposta.progresso) {
+        setProgresso(resposta.progresso);
         return;
       }
       if (resposta.sucesso && resposta.dados.produtos.length > 0) {
@@ -222,8 +284,27 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
     }
   };
 
+  // Volta para a leitura da Sefaz (usado quando a nota veio incompleta)
+  const lerNotaDeNovo = () => {
+    jaProcessou.current = false;
+    setDadosNota(null);
+    setProblemaPagina(null);
+    setProgresso(null);
+    setTentativa(t => t + 1);
+    setEtapa('extraindo');
+  };
+
   const salvarNoHistorico = async () => {
     if (!dadosNota) return;
+    if (dadosNota.esperado && dadosNota.produtos.length < dadosNota.esperado) {
+      const seguir = await confirmar({
+        titulo: 'Nota incompleta',
+        mensagem: `A nota tem ${dadosNota.esperado} itens, mas só li ${dadosNota.produtos.length}. Registrar assim mesmo?`,
+        textoConfirmar: 'Registrar assim',
+        textoCancelar: 'Voltar',
+      });
+      if (!seguir) return;
+    }
     setSalvando(true);
     try {
       // Bloqueia nota repetida (mesmo QR Code)
@@ -258,7 +339,9 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
 
   const resetarEFechar = () => {
     sessao.current += 1;
+    autoTentativas.current = 0;
     setProblemaPagina(null);
+    setProgresso(null);
     setEtapa('camera');
     setUrlNota('');
     setDadosNota(null);
@@ -268,7 +351,15 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   };
 
   return (
-    <Modal visible={visivel} animationType="slide" transparent>
+    <>
+    {/* Etapa da câmera: janela própria que aparece com fade, só o quadrado no meio (sem subir de baixo) */}
+    <Modal visible={visivel && etapa === 'camera'} animationType="fade" transparent statusBarTranslucent onRequestClose={resetarEFechar}>
+      <View style={styles.fundoScanner}>
+        <LeitorNota aoLerCodigo={aoLerQrCode} aoCancelar={resetarEFechar} />
+      </View>
+    </Modal>
+
+    <Modal visible={visivel && etapa !== 'camera'} animationType="slide" transparent>
       <View style={styles.overlay}>
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
@@ -283,23 +374,24 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
             </TouchableOpacity>
           </View>
 
-          {etapa === 'camera' && (
-            <View style={{ flex: 1, borderRadius: 20, overflow: 'hidden' }}>
-              <LeitorNota aoLerCodigo={aoLerQrCode} aoCancelar={resetarEFechar} />
-            </View>
-          )}
-
           {etapa === 'extraindo' && (
             <View style={{ flex: 1 }}>
               <Text style={styles.avisoTexto}>
                 Extraindo produtos automaticamente da Receita... Se aparecer um Captcha abaixo, resolva-o na tela.
               </Text>
+              {!problemaPagina && (
+                <Text style={styles.progressoTexto}>
+                  {progresso && progresso.lidos > 0
+                    ? `Lendo itens: ${progresso.lidos}${progresso.esperado ? ` de ${progresso.esperado}` : ''}... aguarde terminar`
+                    : 'Carregando a nota... pode levar alguns segundos'}
+                </Text>
+              )}
               {!!problemaPagina && (
                 <View style={styles.faixaProblema}>
                   <Feather name="alert-triangle" size={16} color="#FF3B5C" style={{ marginRight: 8 }} />
                   <Text style={styles.faixaProblemaTexto}>
                     {problemaPagina === 'bloqueio'
-                      ? 'A Sefaz recusou o acesso. Espere alguns segundos e toque em Tentar de novo.'
+                      ? 'A Sefaz recusou o acesso. Estou limpando o navegador e tentando de novo sozinho. Se não der, toque em Tentar de novo.'
                       : 'Não consegui carregar a página. Verifique a internet e toque em Tentar de novo.'}
                   </Text>
                 </View>
@@ -312,6 +404,11 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
                   injectedJavaScript={scriptExtratorSefaz}
                   onMessage={receberDadosDaTela}
                   onError={() => setProblemaPagina('rede')}
+                  incognito
+                  cacheEnabled={false}
+                  sharedCookiesEnabled={false}
+                  thirdPartyCookiesEnabled={false}
+                  userAgent={USER_AGENT_CHROME}
                 />
               </View>
               <View style={styles.linhaBotoesLeitura}>
@@ -324,7 +421,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[styles.botaoForcarLeitura, { flex: 1 }]}
-                  onPress={() => webviewRef.current?.injectJavaScript(scriptExtratorSefaz)}
+                  onPress={() => webviewRef.current?.injectJavaScript(montarScript(true))}
                 >
                   <Text style={styles.textoBotao}>Extrair Agora</Text>
                 </TouchableOpacity>
@@ -372,6 +469,18 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
                 <Text style={styles.totalNota}>Total: R$ {dadosNota.total.toFixed(2)}</Text>
               </View>
 
+              {!!dadosNota.esperado && dadosNota.produtos.length < dadosNota.esperado && (
+                <View style={styles.faixaProblema}>
+                  <Feather name="alert-triangle" size={16} color="#FF3B5C" style={{ marginRight: 8 }} />
+                  <Text style={styles.faixaProblemaTexto}>
+                    A nota tem {dadosNota.esperado} itens, mas só li {dadosNota.produtos.length}.
+                  </Text>
+                  <TouchableOpacity onPress={lerNotaDeNovo} style={styles.botaoLerDeNovo}>
+                    <Text style={styles.botaoLerDeNovoTexto}>Ler de novo</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
               <FlatList
                 data={dadosNota.produtos}
                 keyExtractor={(_, index) => index.toString()}
@@ -413,10 +522,12 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
       </View>
       <DialogoNoModal />
     </Modal>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  fundoScanner: { flex: 1, backgroundColor: 'rgba(11,11,15,0.97)' },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'flex-end' },
   container: { flex: 1, backgroundColor: '#1C1D25', marginTop: 50, borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 20, borderWidth: 1, borderColor: '#2A2B34' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
@@ -441,6 +552,9 @@ const styles = StyleSheet.create({
   linhaBotoesLeitura: { flexDirection: 'row', gap: 10, marginTop: 10 },
   botaoTentarDeNovo: { flex: 1.3, flexDirection: 'row' },
   botaoTentarDestaque: { backgroundColor: '#D4FF3A' },
+  progressoTexto: { color: '#D4FF3A', fontSize: 12, fontWeight: 'bold', textAlign: 'center', marginBottom: 10 },
+  botaoLerDeNovo: { backgroundColor: '#D4FF3A', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, marginLeft: 8 },
+  botaoLerDeNovoTexto: { color: '#0B0B0F', fontWeight: '900', fontSize: 12 },
   faixaProblema: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FF3B5C22', borderWidth: 1, borderColor: '#FF3B5C55', borderRadius: 14, padding: 12, marginBottom: 10 },
   faixaProblemaTexto: { flex: 1, color: '#F4F5F7', fontSize: 12 },
   textoBotao: { color: '#F4F5F7', fontSize: 15, fontWeight: 'bold' },
