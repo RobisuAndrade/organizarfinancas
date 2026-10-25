@@ -141,21 +141,35 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
     salvarApelidoEContinuar(dadosNota.cnpj, nome, dadosNota);
   };
 
+  // Versão SITE (navegador): quem lê a página da Sefaz é o servidor do site (/api/nota)
+  const lerNotaPeloServidor = async (url: string) => {
+    const sessaoAtual = sessao.current;
+    setEtapa('extraindo');
+    try {
+      const resp = await fetch(`/api/nota?url=${encodeURIComponent(url)}`);
+      let json: any = null;
+      try {
+        json = await resp.json();
+      } catch (e) {}
+      if (sessaoAtual !== sessao.current) return;
+      if (!resp.ok || !json || json.erro || !json.dados) {
+        throw new Error(json?.mensagem || 'Leitura pelo navegador indisponível aqui. Use o site publicado ou o app instalado.');
+      }
+      jaProcessou.current = true;
+      prepararDados(json.dados);
+    } catch (e: any) {
+      if (sessaoAtual !== sessao.current) return;
+      setEtapa('camera');
+      avisar('Não consegui ler a nota', e?.message || 'Tente de novo em instantes.', 'erro');
+    }
+  };
+
   const aoLerQrCode = (url: string) => {
     autoTentativas.current = 0;
     setUrlNota(url);
     jaProcessou.current = false;
     if (Platform.OS === 'web') {
-      prepararDados({
-        mercado: 'SUPERMERCADO EXEMPLO LTDA',
-        cnpj: '00000000000100',
-        data: new Date().toLocaleDateString('pt-BR'),
-        total: 66.7,
-        produtos: [
-          { nome: 'ARROZ TIPO 1 5KG', qtd: 1, unidade: 'UN', valorUnitario: 25.9, valorTotal: 25.9 },
-          { nome: 'CAFE TORRADO 500G', qtd: 2, unidade: 'UN', valorUnitario: 20.4, valorTotal: 40.8 },
-        ],
-      });
+      lerNotaPeloServidor(url);
     } else {
       setEtapa('extraindo');
     }
@@ -374,7 +388,16 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
             </TouchableOpacity>
           </View>
 
-          {etapa === 'extraindo' && (
+          {etapa === 'extraindo' && Platform.OS === 'web' && (
+            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 }}>
+              <ActivityIndicator color="#D4FF3A" size="large" />
+              <Text style={[styles.avisoTexto, { marginTop: 20 }]}>
+                Buscando os produtos na Sefaz... pode levar alguns segundos.
+              </Text>
+            </View>
+          )}
+
+          {etapa === 'extraindo' && Platform.OS !== 'web' && (
             <View style={{ flex: 1 }}>
               <Text style={styles.avisoTexto}>
                 Extraindo produtos automaticamente da Receita... Se aparecer um Captcha abaixo, resolva-o na tela.

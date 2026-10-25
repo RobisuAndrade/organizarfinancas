@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/nota.js": { "maxDuration": 30 }
+  },
+  "regions": ["gru1"]
+}
