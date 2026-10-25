@@ -21,6 +21,8 @@ export default function LeitorNota({ aoLerCodigo, aoCancelar }: LeitorNotaProps)
   const [lanterna, setLanterna] = useState(false);
   const [nivelZoom, setNivelZoom] = useState(0);
   const travado = useRef(false);
+  // A lanterna só pode ser ligada depois que a câmera terminou de iniciar (senão acende e apaga na hora)
+  const [lanternaLiberada, setLanternaLiberada] = useState(false);
 
   // Linha que desce e sobe dentro do quadrado (mostra que está procurando o QR Code)
   const linha = useRef(new Animated.Value(0)).current;
@@ -72,9 +74,9 @@ export default function LeitorNota({ aoLerCodigo, aoCancelar }: LeitorNotaProps)
           <CameraView
             style={StyleSheet.absoluteFill}
             facing="back"
-            autofocus="on"
             zoom={NIVEIS_ZOOM[nivelZoom]}
-            enableTorch={lanterna}
+            enableTorch={lanternaLiberada && lanterna}
+            onCameraReady={() => setTimeout(() => setLanternaLiberada(true), 700)}
             barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
             onBarcodeScanned={leu ? undefined : aoEscanear}
           />
@@ -106,7 +108,11 @@ export default function LeitorNota({ aoLerCodigo, aoCancelar }: LeitorNotaProps)
 
       {/* Botões de apoio */}
       <View style={styles.barraBotoes}>
-        <TouchableOpacity style={[styles.botaoRedondo, lanterna && styles.botaoRedondoAtivo]} onPress={() => setLanterna((l) => !l)}>
+        <TouchableOpacity
+          style={[styles.botaoRedondo, lanterna && styles.botaoRedondoAtivo, !lanternaLiberada && { opacity: 0.4 }]}
+          disabled={!lanternaLiberada}
+          onPress={() => setLanterna((l) => !l)}
+        >
           <Feather name={lanterna ? 'zap' : 'zap-off'} size={20} color={lanterna ? Colors.background : Colors.text} />
         </TouchableOpacity>
 
