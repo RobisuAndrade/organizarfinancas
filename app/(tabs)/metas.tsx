@@ -1,14 +1,12 @@
-import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, FlatList, KeyboardAvoidingView, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, FlatList, KeyboardAvoidingView, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, push, ref, set } from 'firebase/database';
 import { db } from '../../firebaseConfig';
-
-// Importação da nossa Calculadora Global
-import Calculadora from './calculadora';
+import { useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
 // CONFIGURAÇÃO DA META
@@ -22,6 +20,7 @@ import { converterParaNumero, formatarData, formatarInputMoeda, formatarMoeda } 
 
 export default function NossasMetas() {
   const router = useRouter();
+  const { avisar } = useDialogo();
 
   // Estados dos Saldos
   const [saldoRobinho, setSaldoRobinho] = useState(0);
@@ -40,9 +39,6 @@ export default function NossasMetas() {
   const [valorInput, setValorInput] = useState('');
   const [descricao, setDescricao] = useState('');
 
-  // Estado da Calculadora
-  const [calcAberto, setCalcAberto] = useState(false);
-
   useEffect(() => {
     // Animação de entrada
     Animated.parallel([
@@ -52,7 +48,7 @@ export default function NossasMetas() {
 
     // 1. Escutar Saldos
     const metasRef = ref(db, 'metas/contas');
-    onValue(metasRef, (snapshot) => {
+    const unsubSaldos = onValue(metasRef, (snapshot) => {
       const dados = snapshot.val();
       if (dados) {
         setSaldoRobinho(dados.robinho || 0);
@@ -62,7 +58,7 @@ export default function NossasMetas() {
 
     // 2. Escutar Histórico
     const histRef = ref(db, 'metas/historico');
-    onValue(histRef, (snapshot) => {
+    const unsubHist = onValue(histRef, (snapshot) => {
       const dados = snapshot.val();
       if (dados) {
         const itens = Object.keys(dados).map(key => ({ id: key, ...dados[key] }));
@@ -71,12 +67,17 @@ export default function NossasMetas() {
         setHistorico([]);
       }
     });
+
+    return () => {
+      unsubSaldos();
+      unsubHist();
+    };
   }, []);
 
   const realizarTransacao = async () => {
     const valorNum = converterParaNumero(valorInput);
     if (valorNum <= 0 || !descricao) {
-      Alert.alert("Erro", "Preencha o valor e a descrição.");
+      avisar("Atenção", "Preencha o valor e a descrição.", 'aviso');
       return;
     }
 
@@ -106,7 +107,7 @@ export default function NossasMetas() {
       setValorInput('');
       setDescricao('');
     } catch (e) {
-      Alert.alert("Erro", "Falha na transação.");
+      avisar("Erro", "Falha na transação.", 'erro');
     }
   };
 
@@ -129,7 +130,7 @@ export default function NossasMetas() {
       {/* HEADER DE NAVEGAÇÃO */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Feather name="arrow-left" size={24} color="#B04FCF" />
+          <Feather name="arrow-left" size={24} color="#D4FF3A" />
         </TouchableOpacity>
         <View>
           <Text style={styles.titulo}>Nossas Metas</Text>
@@ -141,7 +142,7 @@ export default function NossasMetas() {
       <View style={styles.goalCard}>
         <View style={styles.goalHeader}>
           <View style={styles.goalIconBox}>
-            <Feather name="shield" size={22} color="#0F0414" />
+            <Feather name="shield" size={22} color="#0B0B0F" />
           </View>
           <View>
             <Text style={styles.goalTitle}>Reserva de Emergência</Text>
@@ -231,15 +232,15 @@ export default function NossasMetas() {
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={renderHeader}
-          contentContainerStyle={{ paddingBottom: 40 }}
+          contentContainerStyle={{ paddingBottom: 170 }}
           renderItem={({ item }) => (
             <View style={styles.extratoItem}>
               <View style={styles.extratoLeft}>
-                <View style={[styles.extratoIcon, { backgroundColor: item.tipo === 'ENTRADA' ? '#00E67615' : '#FF336615' }]}>
+                <View style={[styles.extratoIcon, { backgroundColor: item.tipo === 'ENTRADA' ? '#00E67615' : '#FF3B5C15' }]}>
                   <Feather 
                     name={item.tipo === 'ENTRADA' ? "arrow-up-right" : "arrow-down-left"} 
                     size={20} 
-                    color={item.tipo === 'ENTRADA' ? "#00E676" : "#FF3366"} 
+                    color={item.tipo === 'ENTRADA' ? "#00E676" : "#FF3B5C"} 
                   />
                 </View>
                 <View style={styles.extratoInfo}>
@@ -249,14 +250,14 @@ export default function NossasMetas() {
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.extratoValor, { color: item.tipo === 'ENTRADA' ? '#00E676' : '#FFF' }]}>
+              <Text style={[styles.extratoValor, { color: item.tipo === 'ENTRADA' ? '#00E676' : '#F4F5F7' }]}>
                 {item.tipo === 'ENTRADA' ? '+' : '-'} {formatarMoeda(item.valor)}
               </Text>
             </View>
           )}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Feather name="file-text" size={40} color="#2D1436" />
+              <Feather name="file-text" size={40} color="#2A2B34" />
               <Text style={styles.emptyStateText}>Nenhuma movimentação encontrada.</Text>
             </View>
           }
@@ -288,7 +289,7 @@ export default function NossasMetas() {
                 <TextInput 
                   style={styles.modalInput} 
                   placeholder="R$ 0,00" 
-                  placeholderTextColor="#666" 
+                  placeholderTextColor="#8A8D98" 
                   keyboardType="numeric"
                   value={valorInput}
                   onChangeText={t => setValorInput(formatarInputMoeda(t))}
@@ -298,7 +299,7 @@ export default function NossasMetas() {
                 <TextInput 
                   style={styles.modalInput} 
                   placeholder="Ex: Sobrou do mês" 
-                  placeholderTextColor="#666"
+                  placeholderTextColor="#8A8D98"
                   value={descricao}
                   onChangeText={setDescricao}
                 />
@@ -317,112 +318,78 @@ export default function NossasMetas() {
         </Modal>
 
       </Animated.View>
-
-      {/* BOTÃO FLUTUANTE DA CALCULADORA */}
-      <TouchableOpacity 
-        style={styles.fabCalculadora} 
-        activeOpacity={0.8} 
-        onPress={() => setCalcAberto(true)}
-      >
-        <MaterialIcons name="calculate" size={24} color="#FFF" />
-      </TouchableOpacity>
-
-      {/* COMPONENTE DA CALCULADORA */}
-      <Calculadora visivel={calcAberto} fechar={() => setCalcAberto(false)} />
-
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0F0414' },
+  safeArea: { flex: 1, backgroundColor: '#0B0B0F' },
   container: { flex: 1, maxWidth: 600, alignSelf: 'center', width: '100%', paddingHorizontal: 20 },
   headerComponent: { paddingTop: 40 },
   
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
-  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E0A24', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2D1436' },
-  titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
-  subtitulo: { fontSize: 12, color: '#888', marginTop: 2 },
+  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1C1D25', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2A2B34' },
+  titulo: { fontSize: 24, fontWeight: 'bold', color: '#F4F5F7' },
+  subtitulo: { fontSize: 12, color: '#8A8D98', marginTop: 2 },
 
-  goalCard: { backgroundColor: '#1E0A24', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#00E67650', marginBottom: 25, shadowColor: '#00E676', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
+  goalCard: { backgroundColor: '#1C1D25', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#00E67650', marginBottom: 25, shadowColor: '#00E676', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
   goalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   goalIconBox: { width: 45, height: 45, backgroundColor: '#00E676', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  goalTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
+  goalTitle: { color: '#F4F5F7', fontSize: 18, fontWeight: 'bold' },
   goalSubtitle: { color: '#00E676', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 4, letterSpacing: 1 },
   
   goalValuesRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 15 },
-  goalCurrentValue: { color: '#FFF', fontSize: 36, fontWeight: '900' },
-  goalPercentText: { color: '#888', fontSize: 16, fontWeight: 'bold', marginBottom: 6 },
+  goalCurrentValue: { color: '#F4F5F7', fontSize: 36, fontWeight: '900' },
+  goalPercentText: { color: '#8A8D98', fontSize: 16, fontWeight: 'bold', marginBottom: 6 },
 
-  progressBarBg: { height: 12, backgroundColor: '#0F0414', borderRadius: 6, borderWidth: 1, borderColor: '#2D1436', overflow: 'hidden' },
+  progressBarBg: { height: 12, backgroundColor: '#0B0B0F', borderRadius: 6, borderWidth: 1, borderColor: '#2A2B34', overflow: 'hidden' },
   progressBarFill: { height: '100%', backgroundColor: '#00E676', borderRadius: 6 },
   
   goalSuccessBadge: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFD70015', paddingVertical: 10, borderRadius: 12, marginTop: 20, borderWidth: 1, borderColor: '#FFD70040' },
   goalSuccessText: { color: '#FFD700', fontSize: 12, fontWeight: '900', letterSpacing: 1.5 },
 
   contasRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
-  contaCard: { width: '48%', backgroundColor: '#1E0A24', padding: 18, borderRadius: 20, borderWidth: 1, borderColor: '#2D1436' },
-  contaNome: { color: '#888', fontSize: 10, fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  contaValor: { color: '#FFF', fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
+  contaCard: { width: '48%', backgroundColor: '#1C1D25', padding: 18, borderRadius: 20, borderWidth: 1, borderColor: '#2A2B34' },
+  contaNome: { color: '#8A8D98', fontSize: 10, fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  contaValor: { color: '#F4F5F7', fontSize: 20, fontWeight: 'bold', marginBottom: 15 },
   btnAcao: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 12 },
   btnAcaoText: { fontSize: 12, fontWeight: 'bold', marginLeft: 8 },
 
   extratoHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  sectionTitle: { color: '#B04FCF', fontSize: 14, fontWeight: '900', textTransform: 'uppercase', marginBottom: 15, letterSpacing: 1.5 },
+  sectionTitle: { color: '#D4FF3A', fontSize: 14, fontWeight: '900', textTransform: 'uppercase', marginBottom: 15, letterSpacing: 1.5 },
   
   filtrosScroll: { flexDirection: 'row', marginBottom: 5 },
-  filtroPill: { backgroundColor: '#1E0A24', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#2D1436', height: 38, justifyContent: 'center' },
-  filtroPillAtivo: { backgroundColor: '#B04FCF', borderColor: '#B04FCF' },
-  filtroPillText: { color: '#888', fontSize: 12, fontWeight: 'bold' },
-  filtroPillTextAtivo: { color: '#FFF' },
+  filtroPill: { backgroundColor: '#1C1D25', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#2A2B34', height: 38, justifyContent: 'center' },
+  filtroPillAtivo: { backgroundColor: '#D4FF3A', borderColor: '#D4FF3A' },
+  filtroPillText: { color: '#8A8D98', fontSize: 12, fontWeight: 'bold' },
+  filtroPillTextAtivo: { color: '#0B0B0F' },
 
   // Estilos do Extrato Bancário (Clean Look)
-  extratoItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#2D1436' },
+  extratoItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#2A2B34' },
   extratoLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, paddingRight: 10 },
   extratoIcon: { width: 42, height: 42, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   extratoInfo: { flex: 1 },
-  extratoDesc: { color: '#FFF', fontSize: 15, fontWeight: 'bold', marginBottom: 4 },
-  extratoData: { color: '#888', fontSize: 11, fontWeight: '500' },
+  extratoDesc: { color: '#F4F5F7', fontSize: 15, fontWeight: 'bold', marginBottom: 4 },
+  extratoData: { color: '#8A8D98', fontSize: 11, fontWeight: '500' },
   extratoValor: { fontSize: 16, fontWeight: 'bold' },
 
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  emptyStateText: { color: '#666', fontSize: 14, marginTop: 15, fontWeight: '500' },
+  emptyStateText: { color: '#8A8D98', fontSize: 14, marginTop: 15, fontWeight: '500' },
 
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: '#1E0A24', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#2D1436' },
-  modalTitle: { color: '#FFF', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 25 },
-  tipoToggle: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#0F0414', borderRadius: 14, padding: 4, borderWidth: 1, borderColor: '#2D1436' },
+  modalContent: { backgroundColor: '#1C1D25', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#2A2B34' },
+  modalTitle: { color: '#F4F5F7', fontSize: 18, fontWeight: 'bold', textAlign: 'center', marginBottom: 25 },
+  tipoToggle: { flexDirection: 'row', marginBottom: 20, backgroundColor: '#0B0B0F', borderRadius: 14, padding: 4, borderWidth: 1, borderColor: '#2A2B34' },
   tipoBtn: { flex: 1, paddingVertical: 14, alignItems: 'center', borderRadius: 10 },
   tipoBtnAtivoEntrada: { backgroundColor: '#00E676' },
-  tipoBtnAtivoSaida: { backgroundColor: '#FF3366' },
-  tipoBtnText: { color: '#888', fontWeight: 'bold' },
-  tipoBtnTextAtivo: { color: '#0F0414', fontWeight: '900' },
-  inputLabelMicro: { color: '#B04FCF', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4, letterSpacing: 1 },
-  modalInput: { backgroundColor: '#0F0414', height: 55, borderRadius: 14, paddingHorizontal: 15, color: '#FFF', fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: '#2D1436' },
+  tipoBtnAtivoSaida: { backgroundColor: '#FF3B5C' },
+  tipoBtnText: { color: '#8A8D98', fontWeight: 'bold' },
+  tipoBtnTextAtivo: { color: '#0B0B0F', fontWeight: '900' },
+  inputLabelMicro: { color: '#D4FF3A', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 8, marginLeft: 4, letterSpacing: 1 },
+  modalInput: { backgroundColor: '#0B0B0F', height: 55, borderRadius: 14, paddingHorizontal: 15, color: '#F4F5F7', fontSize: 16, marginBottom: 20, borderWidth: 1, borderColor: '#2A2B34' },
   modalActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 15 },
-  btnCancelar: { padding: 15, flex: 1, alignItems: 'center', backgroundColor: '#0F0414', borderRadius: 14, marginRight: 10, borderWidth: 1, borderColor: '#2D1436' },
-  btnCancelarText: { color: '#888', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
-  btnSalvar: { backgroundColor: '#B04FCF', padding: 15, flex: 1, alignItems: 'center', borderRadius: 14 },
-  btnSalvarText: { color: '#FFF', fontWeight: 'bold', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
-
-  // Botão flutuante da Calculadora
-  fabCalculadora: {
-    position: 'absolute',
-    bottom: 30,
-    right: 20,
-    width: 56,
-    height: 56,
-    backgroundColor: '#B04FCF',
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#B04FCF',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-    elevation: 6,
-    zIndex: 100,
-    borderWidth: 1,
-    borderColor: '#D475EE'
-  }
+  btnCancelar: { padding: 15, flex: 1, alignItems: 'center', backgroundColor: '#0B0B0F', borderRadius: 14, marginRight: 10, borderWidth: 1, borderColor: '#2A2B34' },
+  btnCancelarText: { color: '#8A8D98', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  btnSalvar: { backgroundColor: '#D4FF3A', padding: 15, flex: 1, alignItems: 'center', borderRadius: 14 },
+  btnSalvarText: { color: '#0B0B0F', fontWeight: 'bold', fontSize: 15, textTransform: 'uppercase', letterSpacing: 0.5 },
 });

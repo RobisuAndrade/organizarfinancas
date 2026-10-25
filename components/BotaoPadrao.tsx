@@ -1,6 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, TouchableOpacityProps } from 'react-native';
+import { Colors } from '../constants/theme';
 
 // Definimos o que o nosso botão pode receber de informação
 interface BotaoPadraoProps extends TouchableOpacityProps {
@@ -10,20 +11,20 @@ interface BotaoPadraoProps extends TouchableOpacityProps {
 }
 
 export default function BotaoPadrao({ titulo, icone, variante = 'primario', style, ...rest }: BotaoPadraoProps) {
-  // Cores padrão (Primário)
-  let bgCor = '#B04FCF';
-  let textoCor = '#FFFFFF';
-  let borderCor = '#B04FCF';
+  // Cores padrão (Primário = ação principal, usa o Lime da marca)
+  let bgCor: string = Colors.lime;
+  let textoCor: string = Colors.background;
+  let borderCor: string = Colors.lime;
 
   // Mudamos as cores se a variante for diferente
   if (variante === 'secundario') {
-    bgCor = '#1E0A24';
-    textoCor = '#B04FCF';
-    borderCor = '#2D1436';
+    bgCor = Colors.surface;
+    textoCor = Colors.lavender;
+    borderCor = Colors.surface3;
   } else if (variante === 'perigo') {
-    bgCor = '#FF4D4D15';
-    textoCor = '#FF4D4D';
-    borderCor = '#FF4D4D30';
+    bgCor = Colors.danger + '15';
+    textoCor = Colors.danger;
+    borderCor = Colors.danger + '30';
   }
 
   return (

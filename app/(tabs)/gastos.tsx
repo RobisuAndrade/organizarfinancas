@@ -1,11 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../../firebaseConfig';
+import { useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
 // LISTAS DE OPÇÕES E CORES
@@ -24,7 +25,7 @@ const CORES_BANCOS: { [key: string]: string } = {
   'NUBANK': '#8A05BE',
   'INTER': '#FF7A00',
   'BRADESCO': '#CC092F',
-  'BOLETO': '#888888',
+  'BOLETO': '#8A8D98',
   'PIX': '#32BCAD',
   'DINHEIRO': '#00E676',
   'DEBITO': '#555555'
@@ -33,14 +34,15 @@ const CORES_BANCOS: { [key: string]: string } = {
 const RESPONSAVEIS = ['Robinho', 'Vanessinha'];
 
 // Cor padrão para as categorias e parcelas
-const COR_PADRAO_TAGS = '#B04FCF'; 
+const COR_PADRAO_TAGS = '#D4FF3A'; 
 
 // ----------------------------------------------------
 // FUNÇÕES AUXILIARES
 // ----------------------------------------------------
-import { converterParaNumero, formatarDataInput, formatarInputMoeda, formatarMoeda } from '../../utils/formatadores';
+import { converterParaNumero, formatarDataInput, formatarInputMoeda, formatarMoeda, mascarar } from '../../utils/formatadores';
 
 export default function GestaoGastos() {
+  const { avisar, confirmar } = useDialogo();
   const router = useRouter();
   const params = useLocalSearchParams();
 
@@ -176,7 +178,7 @@ export default function GestaoGastos() {
 
   const salvarGasto = async () => {
     if (!descricao || !valorTotalGeral || !dataCompra) {
-      Alert.alert("Atenção", "Preencha a descrição, data e o valor total!");
+      avisar("Atenção", "Preencha a descrição, data e o valor total!", 'aviso');
       return;
     }
     const payload = {
@@ -189,23 +191,20 @@ export default function GestaoGastos() {
       if (itemEditando) { await update(ref(db, `gastos/${itemEditando}`), payload); } 
       else { await set(push(ref(db, 'gastos')), payload); }
       fecharFormulario();
-    } catch (error) { Alert.alert("Erro", "Falha ao salvar o gasto."); }
+    } catch (error) { avisar("Erro", "Falha ao salvar o gasto.", 'erro'); }
   };
 
   const alternarPago = async (id: string, estadoAtual: boolean) => {
-    try { await update(ref(db, `gastos/${id}`), { pago: !estadoAtual }); } catch (error) { Alert.alert("Erro", "Erro ao atualizar status."); }
+    try { await update(ref(db, `gastos/${id}`), { pago: !estadoAtual }); } catch (error) { avisar("Erro", "Erro ao atualizar status.", 'erro'); }
   };
 
   const confirmarExclusao = async (id: string, descItem: string) => {
-    if (Platform.OS === 'web') {
-      const confirmou = window.confirm(`Deseja apagar "${descItem}" permanentemente?`);
-      if (confirmou) await remove(ref(db, `gastos/${id}`));
-    } else {
-      Alert.alert("Excluir Gasto", `Apagar "${descItem}" permanentemente?`, [
-        { text: "Cancelar", style: "cancel" },
-        { text: "Excluir", style: "destructive", onPress: async () => await remove(ref(db, `gastos/${id}`)) }
-      ]);
-    }
+    const ok = await confirmar({
+      titulo: 'Excluir gasto',
+      mensagem: `Apagar "${descItem}" permanentemente?`,
+      perigo: true,
+    });
+    if (ok) await remove(ref(db, `gastos/${id}`));
   };
 
   const abrirEdicao = (item: any) => {
@@ -229,7 +228,7 @@ export default function GestaoGastos() {
             data={gastosFiltrados}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingTop: 100, paddingBottom: 150, flexGrow: 1 }}
+            contentContainerStyle={{ paddingTop: 130, paddingBottom: 170, flexGrow: 1 }}
             onScroll={Animated.event(
               [{ nativeEvent: { contentOffset: { y: scrollY } } }],
               { useNativeDriver: true }
@@ -239,12 +238,12 @@ export default function GestaoGastos() {
             ListHeaderComponent={
               <View style={styles.actionRow}>
                 <TouchableOpacity activeOpacity={0.8} style={styles.toggleFormButton} onPress={() => setFormAberto(true)}>
-                  <Feather name="plus" size={20} color="#FFF" />
+                  <Feather name="plus" size={20} color="#0B0B0F" />
                   <Text style={styles.toggleFormText}>Adicionar Gasto</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity activeOpacity={0.8} style={[styles.filterButton, filtrosAtivos.length > 0 && styles.filterButtonAtivo]} onPress={() => setModalFiltroAberto(true)}>
-                  <Feather name="filter" size={20} color={filtrosAtivos.length > 0 ? "#B04FCF" : "#FFF"} />
+                  <Feather name="filter" size={20} color={filtrosAtivos.length > 0 ? "#D4FF3A" : "#F4F5F7"} />
                   {filtrosAtivos.length > 0 && (
                      <View style={styles.filterBadgeIndicator}><Text style={styles.filterBadgeText}>{filtrosAtivos.length}</Text></View>
                   )}
@@ -254,24 +253,24 @@ export default function GestaoGastos() {
 
             ListEmptyComponent={
               <View style={styles.emptyState}>
-                <Feather name="file-text" size={50} color="#2D1436" />
+                <Feather name="file-text" size={50} color="#2A2B34" />
                 <Text style={styles.emptyStateText}>Nenhum gasto encontrado.</Text>
                 {filtrosAtivos.length > 0 && (
                   <TouchableOpacity onPress={limparFiltros} style={{marginTop: 15, padding: 10}}>
-                    <Text style={{color: '#B04FCF', fontWeight: 'bold'}}>Limpar Filtros</Text>
+                    <Text style={{color: '#D4FF3A', fontWeight: 'bold'}}>Limpar Filtros</Text>
                   </TouchableOpacity>
                 )}
               </View>
             }
 
             renderItem={({ item }) => {
-              const corPagamentoLista = CORES_BANCOS[item.pagamento] || '#AA319C';
+              const corPagamentoLista = CORES_BANCOS[item.pagamento] || '#B8A6FF';
               const isGastoAtivo = item.isFixo || item.isParcelado;
               return (
                 <View style={[styles.itemCard, item.pago && styles.itemCardPago]}>
                   <View style={styles.itemHeader}>
                     <TouchableOpacity style={[styles.checkbox, item.pago && styles.checkboxMarcado]} onPress={() => alternarPago(item.id, item.pago)}>
-                      {item.pago && <Feather name="check" size={14} color="#FFF" />}
+                      {item.pago && <Feather name="check" size={14} color="#F4F5F7" />}
                     </TouchableOpacity>
                     <View style={styles.itemTitleArea}>
                       <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
@@ -297,11 +296,11 @@ export default function GestaoGastos() {
                       <Text style={{ color: corPagamentoLista, fontSize: 10, fontWeight: 'bold' }}>💳 {item.pagamento}</Text>
                     </View>
                     <View style={[styles.infoTagItem, { borderColor: COR_PADRAO_TAGS, backgroundColor: `${COR_PADRAO_TAGS}20` }]}>
-                      <Text style={[styles.infoTagTexto, { color: '#FFF' }]}>🏷️ {item.categoria}</Text>
+                      <Text style={[styles.infoTagTexto, { color: '#F4F5F7' }]}>🏷️ {item.categoria}</Text>
                     </View>
                     {item.isParcelado && (
                       <View style={[styles.infoTagItem, { borderColor: COR_PADRAO_TAGS, backgroundColor: `${COR_PADRAO_TAGS}20` }]}>
-                        <Text style={[styles.infoTagTexto, { color: '#FFF' }]}>📦 {item.qtdParcelas}x</Text>
+                        <Text style={[styles.infoTagTexto, { color: '#F4F5F7' }]}>📦 {item.qtdParcelas}x</Text>
                       </View>
                     )}
                   </View>
@@ -309,12 +308,12 @@ export default function GestaoGastos() {
                   <View style={styles.itemFooter}>
                     <View>
                       <Text style={styles.labelSubtotal}>Valor {item.isParcelado ? 'da Parcela' : 'Atual'}</Text>
-                      <Text style={[styles.valorTextoFinal, item.pago && { color: '#00E676' }]}>R$ {item.subtotal}</Text>
-                      {item.isParcelado && <Text style={styles.totalGeralItem}>Total Gasto: R$ {item.totalGeral}</Text>}
+                      <Text style={[styles.valorTextoFinal, item.pago && { color: '#00E676' }]}>{mascarar(`R$ ${item.subtotal}`)}</Text>
+                      {item.isParcelado && <Text style={styles.totalGeralItem}>Total Gasto: {mascarar(`R$ ${item.totalGeral}`)}</Text>}
                     </View>
                     <View style={styles.footerActions}>
-                      <TouchableOpacity style={styles.editButton} onPress={() => abrirEdicao(item)}><Feather name="edit-2" size={16} color="#B04FCF" /></TouchableOpacity>
-                      <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.descricao)}><Feather name="trash-2" size={16} color="#FF4D4D" /></TouchableOpacity>
+                      <TouchableOpacity style={styles.editButton} onPress={() => abrirEdicao(item)}><Feather name="edit-2" size={16} color="#D4FF3A" /></TouchableOpacity>
+                      <TouchableOpacity style={styles.deleteButton} onPress={() => confirmarExclusao(item.id, item.descricao)}><Feather name="trash-2" size={16} color="#FF3B5C" /></TouchableOpacity>
                     </View>
                   </View>
                 </View>
@@ -327,7 +326,7 @@ export default function GestaoGastos() {
         <Animated.View style={[styles.headerFlutuante, { transform: [{ translateY: headerTranslateY }] }]}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Feather name="arrow-left" size={24} color="#B04FCF" />
+              <Feather name="arrow-left" size={24} color="#D4FF3A" />
             </TouchableOpacity>
             <View>
               <Text style={styles.titulo}>Gestão de Gastos</Text>
@@ -358,20 +357,20 @@ export default function GestaoGastos() {
               <View style={styles.formModalContainer}>
                 <View style={styles.modalHeaderClose}>
                   <Text style={styles.formTitle}>{itemEditando ? "Editar Despesa" : "Nova Despesa"}</Text>
-                  <TouchableOpacity onPress={fecharFormulario} style={styles.btnCloseForm}><Feather name="x" size={24} color="#FFF" /></TouchableOpacity>
+                  <TouchableOpacity onPress={fecharFormulario} style={styles.btnCloseForm}><Feather name="x" size={24} color="#F4F5F7" /></TouchableOpacity>
                 </View>
 
                 <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                   <View style={styles.rowInputs}>
                     <View style={[styles.inputWrapper, { width: '64%' }]}>
                       <Text style={styles.inputLabelMicro}>Descrição Leve</Text>
-                      <TextInput style={styles.input} placeholder="Ex: Parcela do Apê" placeholderTextColor="#666" value={descricao} onChangeText={setDescricao} />
+                      <TextInput style={styles.input} placeholder="Ex: Parcela do Apê" placeholderTextColor="#8A8D98" value={descricao} onChangeText={setDescricao} />
                     </View>
                     <View style={[styles.inputWrapper, { width: '32%' }]}>
                       <Text style={styles.inputLabelMicro}>Data</Text>
                       <View style={styles.dataContainer}>
-                        <TextInput style={[styles.input, { paddingRight: 40 }]} placeholder="DD/MM/AA" placeholderTextColor="#666" value={dataCompra} onChangeText={(txt) => setDataCompra(formatarDataInput(txt))} keyboardType="number-pad" maxLength={10} />
-                        <TouchableOpacity style={styles.iconDataHoje} onPress={preencherDataHoje}><Feather name="calendar" size={18} color="#B04FCF" /></TouchableOpacity>
+                        <TextInput style={[styles.input, { paddingRight: 40 }]} placeholder="DD/MM/AA" placeholderTextColor="#8A8D98" value={dataCompra} onChangeText={(txt) => setDataCompra(formatarDataInput(txt))} keyboardType="number-pad" maxLength={10} />
+                        <TouchableOpacity style={styles.iconDataHoje} onPress={preencherDataHoje}><Feather name="calendar" size={18} color="#D4FF3A" /></TouchableOpacity>
                       </View>
                     </View>
                   </View>
@@ -386,15 +385,15 @@ export default function GestaoGastos() {
                   </View>
 
                   <Text style={styles.inputLabelMicro}>Total Geral da Compra (R$)</Text>
-                  <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#666" value={valorTotalGeral} onChangeText={(txt) => setValorTotalGeral(formatarInputMoeda(txt))} keyboardType="numeric" />
+                  <TextInput style={styles.input} placeholder="0,00" placeholderTextColor="#8A8D98" value={valorTotalGeral} onChangeText={(txt) => setValorTotalGeral(formatarInputMoeda(txt))} keyboardType="numeric" />
 
                   <View style={styles.switchesContainer}>
                     <TouchableOpacity style={[styles.switchBox, isFixo && styles.switchAtivoFixo]} onPress={() => setIsFixo(!isFixo)}>
-                      <Feather name="repeat" size={16} color={isFixo ? "#FFF" : "#888"} style={{marginRight: 6}} />
+                      <Feather name="repeat" size={16} color={isFixo ? "#F4F5F7" : "#8A8D98"} style={{marginRight: 6}} />
                       <Text style={[styles.switchTexto, isFixo && styles.switchTextoAtivo]}>Gasto Fixo?</Text>
                     </TouchableOpacity>
                     <TouchableOpacity style={[styles.switchBox, isParcelado && styles.switchAtivoParcela]} onPress={() => { setIsParcelado(!isParcelado); if(isParcelado) setQtdParcelas('1'); }}>
-                      <Feather name="layers" size={16} color={isParcelado ? "#FFF" : "#888"} style={{marginRight: 6}} />
+                      <Feather name="layers" size={16} color={isParcelado ? "#F4F5F7" : "#8A8D98"} style={{marginRight: 6}} />
                       <Text style={[styles.switchTexto, isParcelado && styles.switchTextoAtivo]}>Foi Parcelado?</Text>
                     </TouchableOpacity>
                   </View>
@@ -402,7 +401,7 @@ export default function GestaoGastos() {
                   {isParcelado && (
                     <View style={styles.parcelaBox}>
                       <Text style={styles.inputLabelMicro}>Quantidade de Parcelas</Text>
-                      <TextInput style={styles.input} placeholder="Ex: 12" placeholderTextColor="#666" value={qtdParcelas} onChangeText={setQtdParcelas} keyboardType="number-pad" />
+                      <TextInput style={styles.input} placeholder="Ex: 12" placeholderTextColor="#8A8D98" value={qtdParcelas} onChangeText={setQtdParcelas} keyboardType="number-pad" />
                       <View style={styles.calculoAoVivoBox}>
                         <Text style={styles.calculoTexto}>Subtotal (Valor por parcela):</Text>
                         <Text style={styles.calculoValor}>{formatarMoeda(valorParcela)}</Text>
@@ -446,10 +445,10 @@ export default function GestaoGastos() {
               <View style={styles.modalHeaderClose}>
                 <View>
                   <Text style={styles.formTitle}>Filtros Avançados</Text>
-                  <Text style={{color: '#888', fontSize: 12, marginTop: 2}}>Combine opções para buscar gastos</Text>
+                  <Text style={{color: '#8A8D98', fontSize: 12, marginTop: 2}}>Combine opções para buscar gastos</Text>
                 </View>
                 <TouchableOpacity onPress={() => setModalFiltroAberto(false)} style={styles.btnCloseForm}>
-                  <Feather name="x" size={24} color="#FFF" />
+                  <Feather name="x" size={24} color="#F4F5F7" />
                 </TouchableOpacity>
               </View>
 
@@ -458,11 +457,11 @@ export default function GestaoGastos() {
                 {/* 1. Status do Pagamento */}
                 <Text style={styles.inputLabelMicro}>Status do Pagamento</Text>
                 <View style={styles.chipsWrap}>
-                  <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('PENDENTE') && { backgroundColor: '#FF3366', borderColor: '#FF3366' }]} onPress={() => toggleFiltro('PENDENTE')}>
-                    <Text style={[styles.chipTexto, filtrosAtivos.includes('PENDENTE') && { color: '#FFF' }]}>A Pagar (Pendente)</Text>
+                  <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('PENDENTE') && { backgroundColor: '#FF3B5C', borderColor: '#FF3B5C' }]} onPress={() => toggleFiltro('PENDENTE')}>
+                    <Text style={[styles.chipTexto, filtrosAtivos.includes('PENDENTE') && { color: '#F4F5F7' }]}>A Pagar (Pendente)</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('PAGO') && { backgroundColor: '#00E676', borderColor: '#00E676' }]} onPress={() => toggleFiltro('PAGO')}>
-                    <Text style={[styles.chipTexto, filtrosAtivos.includes('PAGO') && { color: '#0F0414' }]}>Já Pago</Text>
+                    <Text style={[styles.chipTexto, filtrosAtivos.includes('PAGO') && { color: '#0B0B0F' }]}>Já Pago</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -470,10 +469,10 @@ export default function GestaoGastos() {
                 <Text style={styles.inputLabelMicro}>Responsável pela Conta</Text>
                 <View style={styles.chipsWrap}>
                   <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('Robinho') && { backgroundColor: '#3b82f6', borderColor: '#3b82f6' }]} onPress={() => toggleFiltro('Robinho')}>
-                    <Text style={[styles.chipTexto, filtrosAtivos.includes('Robinho') && { color: '#FFF' }]}>Robinho</Text>
+                    <Text style={[styles.chipTexto, filtrosAtivos.includes('Robinho') && { color: '#F4F5F7' }]}>Robinho</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('Vanessinha') && { backgroundColor: '#ec4899', borderColor: '#ec4899' }]} onPress={() => toggleFiltro('Vanessinha')}>
-                    <Text style={[styles.chipTexto, filtrosAtivos.includes('Vanessinha') && { color: '#FFF' }]}>Vanessinha</Text>
+                    <Text style={[styles.chipTexto, filtrosAtivos.includes('Vanessinha') && { color: '#F4F5F7' }]}>Vanessinha</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -481,10 +480,10 @@ export default function GestaoGastos() {
                 <Text style={styles.inputLabelMicro}>Tipo de Conta</Text>
                 <View style={styles.chipsWrap}>
                   <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('ATIVO') && { backgroundColor: '#FFD700', borderColor: '#FFD700' }]} onPress={() => toggleFiltro('ATIVO')}>
-                    <Text style={[styles.chipTexto, filtrosAtivos.includes('ATIVO') && { color: '#0F0414' }]}>Recorrente (Fixo/Parc)</Text>
+                    <Text style={[styles.chipTexto, filtrosAtivos.includes('ATIVO') && { color: '#0B0B0F' }]}>Recorrente (Fixo/Parc)</Text>
                   </TouchableOpacity>
-                  <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('NÃO ATIVO') && { backgroundColor: '#666', borderColor: '#666' }]} onPress={() => toggleFiltro('NÃO ATIVO')}>
-                    <Text style={[styles.chipTexto, filtrosAtivos.includes('NÃO ATIVO') && { color: '#FFF' }]}>Gasto Único</Text>
+                  <TouchableOpacity style={[styles.chipPill, filtrosAtivos.includes('NÃO ATIVO') && { backgroundColor: '#8A8D98', borderColor: '#8A8D98' }]} onPress={() => toggleFiltro('NÃO ATIVO')}>
+                    <Text style={[styles.chipTexto, filtrosAtivos.includes('NÃO ATIVO') && { color: '#F4F5F7' }]}>Gasto Único</Text>
                   </TouchableOpacity>
                 </View>
 
@@ -493,10 +492,10 @@ export default function GestaoGastos() {
                 <View style={styles.chipsWrap}>
                   {METODOS_PAGAMENTO.map(metodo => {
                     const isAtivo = filtrosAtivos.includes(metodo);
-                    const cor = CORES_BANCOS[metodo] || '#B04FCF';
+                    const cor = CORES_BANCOS[metodo] || '#D4FF3A';
                     return (
                       <TouchableOpacity key={metodo} style={[styles.chipPill, isAtivo && { backgroundColor: cor, borderColor: cor }]} onPress={() => toggleFiltro(metodo)}>
-                        <Text style={[styles.chipTexto, isAtivo && { color: metodo === 'DINHEIRO' || metodo === 'PIX' ? '#0F0414' : '#FFF' }]}>{metodo}</Text>
+                        <Text style={[styles.chipTexto, isAtivo && { color: metodo === 'DINHEIRO' || metodo === 'PIX' ? '#0B0B0F' : '#F4F5F7' }]}>{metodo}</Text>
                       </TouchableOpacity>
                     );
                   })}
@@ -507,7 +506,7 @@ export default function GestaoGastos() {
                 <View style={styles.chipsWrap}>
                   {CATEGORIAS.map(cat => (
                     <TouchableOpacity key={cat} style={[styles.chipPill, filtrosAtivos.includes(cat) && { backgroundColor: COR_PADRAO_TAGS, borderColor: COR_PADRAO_TAGS }]} onPress={() => toggleFiltro(cat)}>
-                      <Text style={[styles.chipTexto, filtrosAtivos.includes(cat) && { color: '#FFF' }]}>{cat}</Text>
+                      <Text style={[styles.chipTexto, filtrosAtivos.includes(cat) && { color: '#F4F5F7' }]}>{cat}</Text>
                     </TouchableOpacity>
                   ))}
                 </View>
@@ -533,7 +532,7 @@ export default function GestaoGastos() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0F0414' },
+  safeArea: { flex: 1, backgroundColor: '#0B0B0F' },
   mainWrapper: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center' }, 
   
   // Elementos Flutuantes
@@ -542,7 +541,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0F0414',
+    backgroundColor: '#0B0B0F',
     zIndex: 10,
     paddingTop: Platform.OS === 'ios' ? 50 : 40,
     paddingBottom: 15,
@@ -555,111 +554,112 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 10,
     paddingHorizontal: 20,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+    // Precisa subir o suficiente pra não ficar embaixo da barra de navegação flutuante
+    paddingBottom: Platform.OS === 'ios' ? 125 : 110,
     backgroundColor: 'transparent',
   },
 
   header: { flexDirection: 'row', alignItems: 'center' },
-  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E0A24', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2D1436' },
-  titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
-  subtitulo: { fontSize: 12, color: '#888', marginTop: 2 },
+  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1C1D25', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2A2B34' },
+  titulo: { fontSize: 24, fontWeight: 'bold', color: '#F4F5F7' },
+  subtitulo: { fontSize: 12, color: '#8A8D98', marginTop: 2 },
   
   actionRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, gap: 10 },
-  toggleFormButton: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#B04FCF', padding: 15, borderRadius: 16, justifyContent: 'center' },
-  toggleFormText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
-  filterButton: { position: 'relative', width: 54, backgroundColor: '#1E0A24', borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#2D1436' },
-  filterButtonAtivo: { borderColor: '#B04FCF', backgroundColor: '#B04FCF20' }, 
-  filterBadgeIndicator: { position: 'absolute', top: -5, right: -5, backgroundColor: '#FF3366', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#0F0414' },
-  filterBadgeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
+  toggleFormButton: { flex: 1, flexDirection: 'row', alignItems: 'center', backgroundColor: '#D4FF3A', padding: 15, borderRadius: 16, justifyContent: 'center' },
+  toggleFormText: { color: '#0B0B0F', fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
+  filterButton: { position: 'relative', width: 54, backgroundColor: '#1C1D25', borderRadius: 16, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#2A2B34' },
+  filterButtonAtivo: { borderColor: '#D4FF3A', backgroundColor: '#D4FF3A20' }, 
+  filterBadgeIndicator: { position: 'absolute', top: -5, right: -5, backgroundColor: '#FF3B5C', width: 20, height: 20, borderRadius: 10, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#0B0B0F' },
+  filterBadgeText: { color: '#F4F5F7', fontSize: 10, fontWeight: 'bold' },
   
   listArea: { flex: 1, paddingHorizontal: 20 }, 
   emptyState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40 },
-  emptyStateText: { color: '#666', fontSize: 14, marginTop: 15, fontWeight: '500' },
+  emptyStateText: { color: '#8A8D98', fontSize: 14, marginTop: 15, fontWeight: '500' },
   
-  itemCard: { backgroundColor: '#1E0A24', padding: 20, borderRadius: 20, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436', shadowColor: '#B04FCF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
+  itemCard: { backgroundColor: '#1C1D25', padding: 20, borderRadius: 20, marginBottom: 15, borderWidth: 1, borderColor: '#2A2B34', shadowColor: '#D4FF3A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
   itemCardPago: { opacity: 0.6, borderColor: '#00E67640' }, 
   itemHeader: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12 },
-  checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: '#B04FCF', justifyContent: 'center', alignItems: 'center', marginRight: 15, marginTop: 2 },
+  checkbox: { width: 24, height: 24, borderRadius: 8, borderWidth: 2, borderColor: '#D4FF3A', justifyContent: 'center', alignItems: 'center', marginRight: 15, marginTop: 2 },
   checkboxMarcado: { backgroundColor: '#00E676', borderColor: '#00E676' },
   itemTitleArea: { flex: 1, paddingRight: 10 },
-  itemTexto: { fontSize: 18, color: '#FFF', fontWeight: 'bold', marginBottom: 4 },
-  itemTextoRiscado: { textDecorationLine: 'line-through', color: '#888' },
-  dataItem: { color: '#888', fontSize: 11, fontWeight: '500' },
+  itemTexto: { fontSize: 18, color: '#F4F5F7', fontWeight: 'bold', marginBottom: 4 },
+  itemTextoRiscado: { textDecorationLine: 'line-through', color: '#8A8D98' },
+  dataItem: { color: '#8A8D98', fontSize: 11, fontWeight: '500' },
   badge: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6 },
   badgeText: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
   infoTagsRow: { flexDirection: 'row', marginBottom: 18, gap: 8 },
-  infoTagItem: { backgroundColor: '#0F0414', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, justifyContent: 'center' },
+  infoTagItem: { backgroundColor: '#0B0B0F', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, justifyContent: 'center' },
   infoTagTexto: { fontSize: 10, fontWeight: '900', letterSpacing: 0.5 },
   
-  itemFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 15, borderTopWidth: 1, borderTopColor: '#2D1436' },
-  labelSubtotal: { fontSize: 10, color: '#888', textTransform: 'uppercase', marginBottom: 4, fontWeight: 'bold' },
-  valorTextoFinal: { fontSize: 22, color: '#FFF', fontWeight: '900' },
-  totalGeralItem: { fontSize: 10, color: '#666', marginTop: 2 },
+  itemFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 15, borderTopWidth: 1, borderTopColor: '#2A2B34' },
+  labelSubtotal: { fontSize: 10, color: '#8A8D98', textTransform: 'uppercase', marginBottom: 4, fontWeight: 'bold' },
+  valorTextoFinal: { fontSize: 22, color: '#F4F5F7', fontWeight: '900' },
+  totalGeralItem: { fontSize: 10, color: '#8A8D98', marginTop: 2 },
   footerActions: { flexDirection: 'row', alignItems: 'center' },
-  editButton: { padding: 10, backgroundColor: '#B04FCF15', borderRadius: 10, borderWidth: 1, borderColor: '#B04FCF30', marginRight: 10 },
-  deleteButton: { padding: 10, backgroundColor: '#FF4D4D15', borderRadius: 10, borderWidth: 1, borderColor: '#FF4D4D30' },
+  editButton: { padding: 10, backgroundColor: '#D4FF3A15', borderRadius: 10, borderWidth: 1, borderColor: '#D4FF3A30', marginRight: 10 },
+  deleteButton: { padding: 10, backgroundColor: '#FF3B5C15', borderRadius: 10, borderWidth: 1, borderColor: '#FF3B5C30' },
   
   subtotalContainer: { 
-    backgroundColor: '#1E0A24', 
+    backgroundColor: '#1C1D25', 
     padding: 20, 
     borderRadius: 24, 
     borderWidth: 1, 
-    borderColor: '#2D1436', 
+    borderColor: '#2A2B34', 
     flexDirection: 'row', 
     justifyContent: 'space-around', 
     alignItems: 'center',
-    shadowColor: '#B04FCF',
+    shadowColor: '#D4FF3A',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 10,
     elevation: 5,
   },
   subtotalColumn: { alignItems: 'center', flex: 1 },
-  subtotalDivider: { width: 1, backgroundColor: '#2D1436', height: '80%' },
-  subtotalLabel: { color: '#888', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4, letterSpacing: 1 },
-  subtotalValueEstimado: { color: '#FFF', fontSize: 20, fontWeight: '900' },
+  subtotalDivider: { width: 1, backgroundColor: '#2A2B34', height: '80%' },
+  subtotalLabel: { color: '#8A8D98', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4, letterSpacing: 1 },
+  subtotalValueEstimado: { color: '#F4F5F7', fontSize: 20, fontWeight: '900' },
   subtotalLabelGasto: { color: '#00E676', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4, letterSpacing: 1 },
   subtotalValueGasto: { color: '#00E676', fontSize: 20, fontWeight: '900' },
   
   modalFullOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
   
   // Estilos do Modal de Formulário
-  formModalContainer: { backgroundColor: '#1E0A24', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '90%', borderWidth: 1, borderColor: '#2D1436' },
+  formModalContainer: { backgroundColor: '#1C1D25', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '90%', borderWidth: 1, borderColor: '#2A2B34' },
   modalHeaderClose: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
-  btnCloseForm: { padding: 8, backgroundColor: '#0F0414', borderRadius: 12 },
-  formTitle: { color: '#FFF', fontWeight: 'bold', fontSize: 20 },
+  btnCloseForm: { padding: 8, backgroundColor: '#0B0B0F', borderRadius: 12 },
+  formTitle: { color: '#F4F5F7', fontWeight: 'bold', fontSize: 20 },
   rowInputs: { flexDirection: 'row', justifyContent: 'space-between' },
   inputWrapper: { marginBottom: 15 },
-  inputLabelMicro: { color: '#B04FCF', fontSize: 11, marginBottom: 8, textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: 1 },
-  input: { height: 55, backgroundColor: '#0F0414', borderRadius: 14, paddingHorizontal: 15, fontSize: 16, color: '#FFF', borderWidth: 1, borderColor: '#2D1436', marginBottom: 15 },
+  inputLabelMicro: { color: '#D4FF3A', fontSize: 11, marginBottom: 8, textTransform: 'uppercase', fontWeight: 'bold', letterSpacing: 1 },
+  input: { height: 55, backgroundColor: '#0B0B0F', borderRadius: 14, paddingHorizontal: 15, fontSize: 16, color: '#F4F5F7', borderWidth: 1, borderColor: '#2A2B34', marginBottom: 15 },
   dataContainer: { position: 'relative', justifyContent: 'center' },
   iconDataHoje: { position: 'absolute', right: 12, top: 18 },
   tagsContainer: { flexDirection: 'row', marginBottom: 20 },
-  tagNormal: { backgroundColor: '#0F0414', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#2D1436', marginRight: 10 },
-  tagTexto: { color: '#888', fontWeight: 'bold', fontSize: 12 },
-  tagTextoAtiva: { color: '#FFF' },
+  tagNormal: { backgroundColor: '#0B0B0F', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, borderWidth: 1, borderColor: '#2A2B34', marginRight: 10 },
+  tagTexto: { color: '#8A8D98', fontWeight: 'bold', fontSize: 12 },
+  tagTextoAtiva: { color: '#F4F5F7' },
   tagRespAtiva: { backgroundColor: '#3b82f6', borderColor: '#3b82f6' }, 
   switchesContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  switchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0F0414', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2D1436', marginHorizontal: 4 },
+  switchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#0B0B0F', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#2A2B34', marginHorizontal: 4 },
   switchAtivoFixo: { backgroundColor: '#FFD700', borderColor: '#FFD700' },
   switchAtivoParcela: { backgroundColor: '#00E676', borderColor: '#00E676' },
-  switchTexto: { color: '#888', fontWeight: 'bold', fontSize: 12 },
-  switchTextoAtivo: { color: '#0F0414', fontWeight: '900' },
-  parcelaBox: { backgroundColor: '#0F0414', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#2D1436', marginBottom: 20 },
-  calculoAoVivoBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E0A24', padding: 15, borderRadius: 12, marginTop: 5 },
-  calculoTexto: { color: '#B04FCF', fontSize: 12, fontWeight: 'bold' },
-  calculoValor: { color: '#FFF', fontSize: 18, fontWeight: '900' },
-  submitButton: { backgroundColor: '#B04FCF', height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
-  submitButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16, textTransform: 'uppercase', letterSpacing: 1 },
+  switchTexto: { color: '#8A8D98', fontWeight: 'bold', fontSize: 12 },
+  switchTextoAtivo: { color: '#0B0B0F', fontWeight: '900' },
+  parcelaBox: { backgroundColor: '#0B0B0F', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#2A2B34', marginBottom: 20 },
+  calculoAoVivoBox: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1C1D25', padding: 15, borderRadius: 12, marginTop: 5 },
+  calculoTexto: { color: '#D4FF3A', fontSize: 12, fontWeight: 'bold' },
+  calculoValor: { color: '#F4F5F7', fontSize: 18, fontWeight: '900' },
+  submitButton: { backgroundColor: '#D4FF3A', height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 10 },
+  submitButtonText: { color: '#0B0B0F', fontWeight: 'bold', fontSize: 16, textTransform: 'uppercase', letterSpacing: 1 },
   
   // Estilos do Novo Modal de Filtros (Bottom Sheet)
-  bottomSheetContainer: { backgroundColor: '#1E0A24', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '85%', width: '100%', borderWidth: 1, borderColor: '#2D1436' },
+  bottomSheetContainer: { backgroundColor: '#1C1D25', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '85%', width: '100%', borderWidth: 1, borderColor: '#2A2B34' },
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 25 },
-  chipPill: { backgroundColor: '#0F0414', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: '#2D1436', justifyContent: 'center', alignItems: 'center' },
-  chipTexto: { color: '#888', fontWeight: 'bold', fontSize: 13 },
-  filterActionFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 15, borderTopWidth: 1, borderTopColor: '#2D1436', paddingTop: 20 },
-  btnLimparFiltros: { flex: 1, backgroundColor: '#0F0414', height: 55, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#2D1436' },
-  btnLimparTexto: { color: '#888', fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' },
-  btnAplicarFiltros: { flex: 1, backgroundColor: '#B04FCF', height: 55, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
-  btnAplicarTexto: { color: '#FFF', fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' }
+  chipPill: { backgroundColor: '#0B0B0F', paddingVertical: 10, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: '#2A2B34', justifyContent: 'center', alignItems: 'center' },
+  chipTexto: { color: '#8A8D98', fontWeight: 'bold', fontSize: 13 },
+  filterActionFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10, gap: 15, borderTopWidth: 1, borderTopColor: '#2A2B34', paddingTop: 20 },
+  btnLimparFiltros: { flex: 1, backgroundColor: '#0B0B0F', height: 55, borderRadius: 14, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#2A2B34' },
+  btnLimparTexto: { color: '#8A8D98', fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' },
+  btnAplicarFiltros: { flex: 1, backgroundColor: '#D4FF3A', height: 55, borderRadius: 14, justifyContent: 'center', alignItems: 'center' },
+  btnAplicarTexto: { color: '#0B0B0F', fontWeight: 'bold', fontSize: 14, textTransform: 'uppercase' }
 });

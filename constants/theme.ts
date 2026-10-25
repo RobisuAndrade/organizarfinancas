@@ -1,41 +1,58 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Paleta oficial do app (rebrand). Todo componente novo deve importar as
+ * cores daqui em vez de usar hex direto no StyleSheet — assim, se a gente
+ * quiser ajustar o tom de algo, muda em um lugar só.
  */
 
 import { Platform } from 'react-native';
 
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
 export const Colors = {
+  // Fundos
+  background: '#0B0B0F', // Graphite — fundo geral das telas
+  surface: '#1C1D25',    // Cards, modais, caixas de conteúdo
+  surface2: '#262731',   // Barra de navegação, botões secundários
+  surface3: '#2A2B34',   // Bordas, divisores, trilhos (ex: barra de progresso)
+
+  // Acento
+  lime: '#D4FF3A',       // Ação principal (CTA, destaques, ativo)
+  lavender: '#B8A6FF',   // Acento secundário
+
+  // Texto
+  text: '#F4F5F7',       // Texto primário
+  muted: '#8A8D98',      // Texto secundário / inativo
+
+  // Semânticas (mantidas por função, não fazem parte do rebrand)
+  success: '#00E676',    // Entradas / valores positivos
+  danger: '#FF3B5C',     // Saídas / alertas / variante "perigo"
+
+  border: '#2A2B34',
+} as const;
+
+// Mantido por compatibilidade com telas que ainda usam light/dark do template Expo
+export const ColorsLegacy = {
   light: {
     text: '#11181C',
     background: '#fff',
-    tint: tintColorLight,
+    tint: '#0a7ea4',
     icon: '#687076',
     tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
+    tabIconSelected: '#0a7ea4',
   },
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    text: Colors.text,
+    background: Colors.background,
+    tint: Colors.lime,
+    icon: Colors.muted,
+    tabIconDefault: Colors.muted,
+    tabIconSelected: Colors.lime,
   },
 };
 
 export const Fonts = Platform.select({
   ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
     sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
     serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
     rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
     mono: 'ui-monospace',
   },
   default: {

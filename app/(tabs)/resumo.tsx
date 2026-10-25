@@ -1,12 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, ref } from 'firebase/database';
 import { db } from '../../firebaseConfig';
-import { converterParaNumero, formatarMoeda } from '../../utils/formatadores';
+import { converterParaNumero, formatarMoeda, mascarar } from '../../utils/formatadores';
 
 const REGRAS_CARTOES: { [key: string]: { fechamento: number, vencimento: number, cor: string } } = {
   'NUBANK-Vanessinha': { fechamento: 4, vencimento: 11, cor: '#8A05BE' },
@@ -42,11 +42,11 @@ const elementosFundo = Array.from({ length: 35 }).map((_, i) => ({
 
 function FundoFinanceiro() {
   return (
-    <View style={[StyleSheet.absoluteFillObject, { overflow: 'hidden', zIndex: 0 }]} pointerEvents="none">
+    <View style={[StyleSheet.absoluteFill, { overflow: 'hidden', zIndex: 0 }]} pointerEvents="none">
       {elementosFundo.map((el) => (
         <Text
           key={el.id}
-          style={{ position: 'absolute', left: el.left, top: el.top, fontSize: el.fontSize, opacity: el.opacity, color: '#B04FCF', fontWeight: '900', transform: [{ rotate: el.rotacao }] }}
+          style={{ position: 'absolute', left: el.left, top: el.top, fontSize: el.fontSize, opacity: el.opacity, color: '#D4FF3A', fontWeight: '900', transform: [{ rotate: el.rotacao }] }}
         >
           {el.simbolo}
         </Text>
@@ -73,7 +73,7 @@ export default function VisaoGeral() {
   // Estados do Modal de Detalhes da Fatura
   const [modalFaturaVisivel, setModalFaturaVisivel] = useState(false);
   const [faturaDetalhe, setFaturaDetalhe] = useState<{titulo: string, responsavel: string, cor: string, total: number, itens: any[], paramsGasto: any}>({
-    titulo: '', responsavel: '', cor: '#B04FCF', total: 0, itens: [], paramsGasto: {}
+    titulo: '', responsavel: '', cor: '#D4FF3A', total: 0, itens: [], paramsGasto: {}
   });
 
   // Animações de Entrada e Scroll Flutuante
@@ -245,7 +245,7 @@ export default function VisaoGeral() {
         <Animated.View style={[styles.headerFlutuante, { transform: [{ translateY: headerTranslateY }] }]}>
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Feather name="arrow-left" size={24} color="#B04FCF" />
+              <Feather name="arrow-left" size={24} color="#D4FF3A" />
             </TouchableOpacity>
             <View>
               <Text style={styles.titulo}>Visão Geral</Text>
@@ -255,14 +255,14 @@ export default function VisaoGeral() {
 
           <View style={styles.calendarioContainer}>
             <TouchableOpacity style={styles.calendarioBotao} onPress={() => mudarMes(-1)}>
-              <Feather name="chevron-left" size={24} color="#FFF" />
+              <Feather name="chevron-left" size={24} color="#F4F5F7" />
             </TouchableOpacity>
             <View style={styles.calendarioCentro}>
-              <Feather name="calendar" size={16} color="#B04FCF" style={{ marginRight: 8 }} />
+              <Feather name="calendar" size={16} color="#D4FF3A" style={{ marginRight: 8 }} />
               <Text style={styles.calendarioTexto}>{formatarNomeMes(mesView, anoView)}</Text>
             </View>
             <TouchableOpacity style={styles.calendarioBotao} onPress={() => mudarMes(1)}>
-              <Feather name="chevron-right" size={24} color="#FFF" />
+              <Feather name="chevron-right" size={24} color="#F4F5F7" />
             </TouchableOpacity>
           </View>
         </Animated.View>
@@ -270,7 +270,7 @@ export default function VisaoGeral() {
         {/* ÁREA DE ROLAGEM */}
         <Animated.ScrollView 
           showsVerticalScrollIndicator={false} 
-          contentContainerStyle={{ paddingTop: 170, paddingBottom: 50 }}
+          contentContainerStyle={{ paddingTop: 205, paddingBottom: 170 }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
@@ -290,14 +290,14 @@ export default function VisaoGeral() {
               
               <View style={styles.compCard}>
                 <Text style={styles.compLabel}>Total Previsto</Text>
-                <Text style={[styles.compValue, { color: '#FF3366' }]}>{formatarMoeda(totalGeralGastos)}</Text>
+                <Text style={[styles.compValue, { color: '#FF3B5C' }]}>{formatarMoeda(totalGeralGastos)}</Text>
                 <TouchableOpacity 
                   activeOpacity={0.7}
                   style={[styles.toggleFixosBtn, incluirFixos ? styles.toggleFixosAtivo : styles.toggleFixosInativo]} 
                   onPress={() => setIncluirFixos(!incluirFixos)}
                 >
-                  <Feather name={incluirFixos ? "check-circle" : "circle"} size={12} color={incluirFixos ? "#00E676" : "#888"} />
-                  <Text style={[styles.toggleFixosText, { color: incluirFixos ? '#00E676' : '#888' }]}>
+                  <Feather name={incluirFixos ? "check-circle" : "circle"} size={12} color={incluirFixos ? "#00E676" : "#8A8D98"} />
+                  <Text style={[styles.toggleFixosText, { color: incluirFixos ? '#00E676' : '#8A8D98' }]}>
                     {incluirFixos ? "FIXO ATIVO" : "FIXO DESATIVADO"}
                   </Text>
                 </TouchableOpacity>
@@ -309,10 +309,10 @@ export default function VisaoGeral() {
               <Feather 
                 name={isSaldoPositivo ? "smile" : "alert-triangle"} 
                 size={18} 
-                color={isSaldoPositivo ? "#00E676" : "#FF3366"} 
+                color={isSaldoPositivo ? "#00E676" : "#FF3B5C"} 
                 style={{ marginRight: 8 }} 
               />
-              <Text style={[styles.statusText, { color: isSaldoPositivo ? '#00E676' : '#FF3366' }]}>
+              <Text style={[styles.statusText, { color: isSaldoPositivo ? '#00E676' : '#FF3B5C' }]}>
                 {isSaldoPositivo 
                   ? `Tudo sob controle! Você ainda tem ${formatarMoeda(totalDisponivel60 - totalGeralGastos)} livres.` 
                   : `Atenção! Você ultrapassou o orçamento em ${formatarMoeda(totalGeralGastos - totalDisponivel60)}.`}
@@ -323,7 +323,7 @@ export default function VisaoGeral() {
               <Text style={styles.sectionTitleNoMargin}>{viewFaturas === 'cartoes' ? 'Faturas & Cartões' : 'Gráfico por Categoria'}</Text>
               <View style={styles.setasScrollBox}>
                 <TouchableOpacity onPress={() => setViewFaturas(v => v === 'cartoes' ? 'categorias' : 'cartoes')} style={styles.setaBotao}>
-                  <Feather name={viewFaturas === 'cartoes' ? "pie-chart" : "credit-card"} size={16} color="#B04FCF" />
+                  <Feather name={viewFaturas === 'cartoes' ? "pie-chart" : "credit-card"} size={16} color="#D4FF3A" />
                 </TouchableOpacity>
               </View>
             </View>
@@ -369,17 +369,17 @@ export default function VisaoGeral() {
                 >
                     <View style={styles.faturaHeader}><Text style={[styles.faturaBanco, { color: '#00E676' }]}>À VISTA</Text><Feather name="zap" size={14} color="#00E676" /></View>
                     <Text style={styles.faturaValor}>{formatarMoeda(detalheAvista.total)}</Text>
-                    <View style={styles.faturaFooter}><Text style={{ color: '#666', fontSize: 10 }}>Dinheiro/Pix/Débito</Text></View>
+                    <View style={styles.faturaFooter}><Text style={{ color: '#8A8D98', fontSize: 10 }}>Dinheiro/Pix/Débito</Text></View>
                 </TouchableOpacity>
 
                 <TouchableOpacity 
                   activeOpacity={0.8} 
-                  onPress={() => abrirDetalheFatura('BOLETO', 'Geral', '#AAA', detalheBoleto, { banco: 'BOLETO' })} 
-                  style={[styles.faturaCard, { width: '100%', borderTopColor: '#888' }]}
+                  onPress={() => abrirDetalheFatura('BOLETO', 'Geral', '#8A8D98', detalheBoleto, { banco: 'BOLETO' })} 
+                  style={[styles.faturaCard, { width: '100%', borderTopColor: '#8A8D98' }]}
                 >
-                    <View style={styles.faturaHeader}><Text style={[styles.faturaBanco, { color: '#AAA' }]}>BOLETO</Text><Feather name="file-text" size={14} color="#AAA" /></View>
+                    <View style={styles.faturaHeader}><Text style={[styles.faturaBanco, { color: '#8A8D98' }]}>BOLETO</Text><Feather name="file-text" size={14} color="#8A8D98" /></View>
                     <Text style={styles.faturaValor}>{formatarMoeda(detalheBoleto.total)}</Text>
-                    <View style={styles.faturaFooter}><Text style={{ color: '#666', fontSize: 10 }}>Contas pagas via boleto bancário</Text></View>
+                    <View style={styles.faturaFooter}><Text style={{ color: '#8A8D98', fontSize: 10 }}>Contas pagas via boleto bancário</Text></View>
                 </TouchableOpacity>
               </View>
             ) : (
@@ -401,8 +401,8 @@ export default function VisaoGeral() {
             <View style={styles.scrollHeader}>
               <Text style={styles.sectionTitleNoMargin}>Projetos & Fixos</Text>
               <View style={styles.setasScrollBox}>
-                <TouchableOpacity onPress={() => rolarCards('esq')} style={styles.setaBotao}><Feather name="chevron-left" size={18} color="#B04FCF" /></TouchableOpacity>
-                <TouchableOpacity onPress={() => rolarCards('dir')} style={styles.setaBotao}><Feather name="chevron-right" size={18} color="#B04FCF" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => rolarCards('esq')} style={styles.setaBotao}><Feather name="chevron-left" size={18} color="#D4FF3A" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => rolarCards('dir')} style={styles.setaBotao}><Feather name="chevron-right" size={18} color="#D4FF3A" /></TouchableOpacity>
               </View>
             </View>
 
@@ -422,7 +422,7 @@ export default function VisaoGeral() {
                 style={[styles.fixedCard, { width: CARD_WIDTH, marginRight: 15 }]}
               >
                 <View style={styles.fixedHeader}>
-                  <View style={styles.fixedIconBox}><Feather name="anchor" size={24} color="#FFF" /></View>
+                  <View style={styles.fixedIconBox}><Feather name="anchor" size={24} color="#F4F5F7" /></View>
                   <View><Text style={styles.fixedTitle}>Gastos FIXOS</Text><Text style={styles.fixedSubtitle}>Contas recorrentes do mês</Text></View>
                 </View>
                 <View style={styles.fixedContent}>
@@ -434,7 +434,7 @@ export default function VisaoGeral() {
 
               <View style={[styles.fixedCard, { width: CARD_WIDTH, borderColor: '#FFD70030' }]}>
                 <View style={styles.fixedHeader}>
-                  <View style={[styles.fixedIconBox, { backgroundColor: '#FFD700' }]}><Feather name="target" size={24} color="#0F0414" /></View>
+                  <View style={[styles.fixedIconBox, { backgroundColor: '#FFD700' }]}><Feather name="target" size={24} color="#0B0B0F" /></View>
                   <View><Text style={styles.fixedTitle}>Nossas Metas</Text><Text style={styles.fixedSubtitle}>Acompanhe os sonhos</Text></View>
                 </View>
                 <View style={styles.fixedContent}><Text style={styles.fixedValueLabel}>Metas em Andamento</Text><Text style={styles.fixedValue}>Em breve</Text></View>
@@ -449,10 +449,10 @@ export default function VisaoGeral() {
                     <Feather name="check-circle" size={16} color="#00E676" style={{ marginRight: 10 }} />
                     <Text style={styles.compradosItemNome}>{prod.nome}</Text>
                   </View>
-                  <Text style={styles.compradosItemValor}>R$ {prod.valorPago || prod.valor || '0,00'}</Text>
+                  <Text style={styles.compradosItemValor}>{mascarar(`R$ ${prod.valorPago || prod.valor || '0,00'}`)}</Text>
                 </View>
               )) : (
-                <Text style={{color: '#666', textAlign: 'center', paddingVertical: 10}}>Nenhuma compra recente.</Text>
+                <Text style={{color: '#8A8D98', textAlign: 'center', paddingVertical: 10}}>Nenhuma compra recente.</Text>
               )}
             </View>
 
@@ -471,7 +471,7 @@ export default function VisaoGeral() {
                 <Text style={styles.modalSubtitleFatura}>{faturaDetalhe.responsavel}</Text>
               </View>
               <TouchableOpacity onPress={() => setModalFaturaVisivel(false)} style={styles.btnCloseForm}>
-                <Feather name="x" size={24} color="#FFF" />
+                <Feather name="x" size={24} color="#F4F5F7" />
               </TouchableOpacity>
             </View>
 
@@ -491,12 +491,12 @@ export default function VisaoGeral() {
                       )}
                     </View>
                   </View>
-                  <Text style={styles.detalheItemValor}>R$ {item.subtotal}</Text>
+                  <Text style={styles.detalheItemValor}>{mascarar(`R$ ${item.subtotal}`)}</Text>
                 </View>
               )) : (
                 <View style={{ alignItems: 'center', paddingVertical: 30 }}>
-                  <Feather name="smile" size={40} color="#2D1436" style={{ marginBottom: 10 }} />
-                  <Text style={{ color: '#666' }}>Nenhum gasto nesta fatura.</Text>
+                  <Feather name="smile" size={40} color="#2A2B34" style={{ marginBottom: 10 }} />
+                  <Text style={{ color: '#8A8D98' }}>Nenhum gasto nesta fatura.</Text>
                 </View>
               )}
             </ScrollView>
@@ -513,7 +513,7 @@ export default function VisaoGeral() {
                 navegarParaGestaoComFiltro(faturaDetalhe.paramsGasto);
               }}
             >
-              <Feather name="edit" size={18} color="#FFF" />
+              <Feather name="edit" size={18} color="#0B0B0F" />
               <Text style={styles.saveButtonText}>Gerenciar Despesas</Text>
             </TouchableOpacity>
 
@@ -526,7 +526,7 @@ export default function VisaoGeral() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0F0414' },
+  safeArea: { flex: 1, backgroundColor: '#0B0B0F' },
   mainWrapper: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center' },
   
   // Estilo do Cabeçalho Retrátil
@@ -535,7 +535,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0F0414',
+    backgroundColor: '#0B0B0F',
     zIndex: 10,
     paddingTop: Platform.OS === 'ios' ? 50 : 40,
     paddingHorizontal: 20,
@@ -543,95 +543,95 @@ const styles = StyleSheet.create({
   },
 
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E0A24', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2D1436' },
-  titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
-  subtitulo: { fontSize: 12, color: '#888', marginTop: 2 },
+  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1C1D25', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2A2B34' },
+  titulo: { fontSize: 24, fontWeight: 'bold', color: '#F4F5F7' },
+  subtitulo: { fontSize: 12, color: '#8A8D98', marginTop: 2 },
   
-  calendarioContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E0A24', borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: '#2D1436' },
+  calendarioContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1C1D25', borderRadius: 16, marginBottom: 10, borderWidth: 1, borderColor: '#2A2B34' },
   calendarioBotao: { padding: 15 },
   calendarioCentro: { flexDirection: 'row', flex: 1, alignItems: 'center', justifyContent: 'center' },
-  calendarioTexto: { color: '#FFF', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
+  calendarioTexto: { color: '#F4F5F7', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
   
-  comparisonContainer: { flexDirection: 'row', backgroundColor: '#1E0A24', borderRadius: 24, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
+  comparisonContainer: { flexDirection: 'row', backgroundColor: '#1C1D25', borderRadius: 24, padding: 20, marginBottom: 15, borderWidth: 1, borderColor: '#2A2B34', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
   compCard: { flex: 1, alignItems: 'center' },
-  compDivider: { width: 1, height: '80%', backgroundColor: '#2D1436' },
-  compLabel: { color: '#888', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
+  compDivider: { width: 1, height: '80%', backgroundColor: '#2A2B34' },
+  compLabel: { color: '#8A8D98', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4 },
   compValue: { fontSize: 20, fontWeight: '900' },
-  compSub: { color: '#666', fontSize: 9, marginTop: 4, fontWeight: 'bold', textTransform: 'uppercase' },
+  compSub: { color: '#8A8D98', fontSize: 9, marginTop: 4, fontWeight: 'bold', textTransform: 'uppercase' },
   
   toggleFixosBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 10, borderWidth: 1 },
   toggleFixosAtivo: { backgroundColor: '#00E67610', borderColor: '#00E67640' },
-  toggleFixosInativo: { backgroundColor: '#0F0414', borderColor: '#2D1436' },
+  toggleFixosInativo: { backgroundColor: '#0B0B0F', borderColor: '#2A2B34' },
   toggleFixosText: { fontSize: 9, fontWeight: '900', marginLeft: 6, textTransform: 'uppercase' },
   
   statusBox: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 15, borderRadius: 16, marginBottom: 25, borderWidth: 1 },
   statusBoxPositivo: { backgroundColor: '#00E67610', borderColor: '#00E67640' },
-  statusBoxNegativo: { backgroundColor: '#FF336610', borderColor: '#FF336640' },
+  statusBoxNegativo: { backgroundColor: '#FF3B5C10', borderColor: '#FF3B5C40' },
   statusText: { fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
   
-  sectionTitle: { color: '#B04FCF', fontSize: 13, fontWeight: '900', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1.5 },
-  sectionTitleNoMargin: { color: '#B04FCF', fontSize: 13, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5 },
+  sectionTitle: { color: '#D4FF3A', fontSize: 13, fontWeight: '900', marginBottom: 15, textTransform: 'uppercase', letterSpacing: 1.5 },
+  sectionTitleNoMargin: { color: '#D4FF3A', fontSize: 13, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1.5 },
   
   cardsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
-  faturaCard: { width: '48%', backgroundColor: '#1E0A24', borderRadius: 20, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436', borderTopWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 },
+  faturaCard: { width: '48%', backgroundColor: '#1C1D25', borderRadius: 20, padding: 15, marginBottom: 15, borderWidth: 1, borderColor: '#2A2B34', borderTopWidth: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 5, elevation: 3 },
   faturaHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   faturaBanco: { fontSize: 13, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 0.5 },
   badgePessoa: { paddingVertical: 4, paddingHorizontal: 8, borderRadius: 6 },
   badgePessoaTexto: { fontSize: 9, fontWeight: '900', textTransform: 'uppercase' },
-  faturaValor: { fontSize: 20, fontWeight: '900', color: '#FFF', marginBottom: 20 },
-  faturaFooter: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#2D1436', paddingTop: 12 },
-  faturaDateLabel: { fontSize: 9, color: '#666', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 2 },
-  faturaDateNum: { fontSize: 11, color: '#CCC', fontWeight: '900' },
+  faturaValor: { fontSize: 20, fontWeight: '900', color: '#F4F5F7', marginBottom: 20 },
+  faturaFooter: { flexDirection: 'row', justifyContent: 'space-between', borderTopWidth: 1, borderTopColor: '#2A2B34', paddingTop: 12 },
+  faturaDateLabel: { fontSize: 9, color: '#8A8D98', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 2 },
+  faturaDateNum: { fontSize: 11, color: '#8A8D98', fontWeight: '900' },
   
-  chartContainer: { backgroundColor: '#1E0A24', borderRadius: 24, padding: 25, marginBottom: 15, borderWidth: 1, borderColor: '#2D1436' },
+  chartContainer: { backgroundColor: '#1C1D25', borderRadius: 24, padding: 25, marginBottom: 15, borderWidth: 1, borderColor: '#2A2B34' },
   chartRow: { marginBottom: 15 },
   chartLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  chartLabel: { color: '#CCC', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
-  chartValue: { color: '#FFF', fontSize: 12, fontWeight: 'bold' },
-  chartBarBg: { height: 10, backgroundColor: '#0F0414', borderRadius: 5, overflow: 'hidden', borderWidth: 1, borderColor: '#2D1436' },
-  chartBarFill: { height: '100%', backgroundColor: '#B04FCF', borderRadius: 5 },
+  chartLabel: { color: '#8A8D98', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 0.5 },
+  chartValue: { color: '#F4F5F7', fontSize: 12, fontWeight: 'bold' },
+  chartBarBg: { height: 10, backgroundColor: '#0B0B0F', borderRadius: 5, overflow: 'hidden', borderWidth: 1, borderColor: '#2A2B34' },
+  chartBarFill: { height: '100%', backgroundColor: '#D4FF3A', borderRadius: 5 },
   
   scrollHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   setasScrollBox: { flexDirection: 'row', gap: 10 },
-  setaBotao: { padding: 8, backgroundColor: '#1E0A24', borderRadius: 10, borderWidth: 1, borderColor: '#2D1436' },
+  setaBotao: { padding: 8, backgroundColor: '#1C1D25', borderRadius: 10, borderWidth: 1, borderColor: '#2A2B34' },
   
-  fixedCard: { backgroundColor: '#1E0A24', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#B04FCF40', shadowColor: '#B04FCF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
+  fixedCard: { backgroundColor: '#1C1D25', borderRadius: 24, padding: 25, borderWidth: 1, borderColor: '#D4FF3A40', shadowColor: '#D4FF3A', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
   fixedHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 25 },
-  fixedIconBox: { width: 45, height: 45, backgroundColor: '#B04FCF', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  fixedTitle: { color: '#FFF', fontSize: 20, fontWeight: 'bold' },
-  fixedSubtitle: { color: '#888', fontSize: 12, marginTop: 2 },
-  fixedContent: { alignItems: 'center', backgroundColor: '#0F0414', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#2D1436' },
-  fixedValueLabel: { color: '#888', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 },
-  fixedValue: { color: '#FFF', fontSize: 32, fontWeight: '900' },
-  btnAcessarMetas: { marginTop: 15, backgroundColor: '#B04FCF15', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 10, borderWidth: 1, borderColor: '#B04FCF30' },
-  btnAcessarMetasText: { color: '#B04FCF', fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
+  fixedIconBox: { width: 45, height: 45, backgroundColor: '#D4FF3A', borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  fixedTitle: { color: '#F4F5F7', fontSize: 20, fontWeight: 'bold' },
+  fixedSubtitle: { color: '#8A8D98', fontSize: 12, marginTop: 2 },
+  fixedContent: { alignItems: 'center', backgroundColor: '#0B0B0F', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#2A2B34' },
+  fixedValueLabel: { color: '#8A8D98', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 },
+  fixedValue: { color: '#F4F5F7', fontSize: 32, fontWeight: '900' },
+  btnAcessarMetas: { marginTop: 15, backgroundColor: '#D4FF3A15', paddingVertical: 10, paddingHorizontal: 15, borderRadius: 10, borderWidth: 1, borderColor: '#D4FF3A30' },
+  btnAcessarMetasText: { color: '#D4FF3A', fontWeight: '900', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5 },
   
-  compradosContainer: { backgroundColor: '#1E0A24', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#2D1436' },
-  compradosItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#2D1436' },
+  compradosContainer: { backgroundColor: '#1C1D25', borderRadius: 24, padding: 20, borderWidth: 1, borderColor: '#2A2B34' },
+  compradosItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#2A2B34' },
   compradosItemEsq: { flexDirection: 'row', alignItems: 'center' },
-  compradosItemNome: { color: '#FFF', fontSize: 15, fontWeight: '600' },
+  compradosItemNome: { color: '#F4F5F7', fontSize: 15, fontWeight: '600' },
   compradosItemValor: { color: '#00E676', fontSize: 15, fontWeight: 'bold' },
 
   // Estilos do Modal de Detalhe da Fatura
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-  modalContent: { backgroundColor: '#1E0A24', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '90%', borderWidth: 1, borderColor: '#2D1436' },
+  modalContent: { backgroundColor: '#1C1D25', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '90%', borderWidth: 1, borderColor: '#2A2B34' },
   modalHeaderClose: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   modalTitle: { fontSize: 24, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
-  modalSubtitleFatura: { color: '#888', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 2 },
-  btnCloseForm: { padding: 8, backgroundColor: '#0F0414', borderRadius: 12 },
-  inputLabelMicro: { color: '#666', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
+  modalSubtitleFatura: { color: '#8A8D98', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', marginTop: 2 },
+  btnCloseForm: { padding: 8, backgroundColor: '#0B0B0F', borderRadius: 12 },
+  inputLabelMicro: { color: '#8A8D98', fontSize: 11, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 },
   
-  detalheItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#2D1436' },
-  detalheItemDesc: { color: '#FFF', fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
-  detalheItemData: { color: '#888', fontSize: 11 },
-  detalheItemValor: { color: '#FFF', fontSize: 16, fontWeight: '900' },
-  detalheBadgeParcela: { backgroundColor: '#B04FCF20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8, borderWidth: 1, borderColor: '#B04FCF40' },
-  detalheBadgeText: { color: '#B04FCF', fontSize: 9, fontWeight: 'bold' },
+  detalheItemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#2A2B34' },
+  detalheItemDesc: { color: '#F4F5F7', fontSize: 14, fontWeight: 'bold', marginBottom: 4 },
+  detalheItemData: { color: '#8A8D98', fontSize: 11 },
+  detalheItemValor: { color: '#F4F5F7', fontSize: 16, fontWeight: '900' },
+  detalheBadgeParcela: { backgroundColor: '#D4FF3A20', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, marginLeft: 8, borderWidth: 1, borderColor: '#D4FF3A40' },
+  detalheBadgeText: { color: '#D4FF3A', fontSize: 9, fontWeight: 'bold' },
 
-  modalTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0F0414', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#2D1436', marginTop: 10, marginBottom: 15 },
-  modalTotalLabel: { color: '#888', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
+  modalTotalRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#0B0B0F', padding: 20, borderRadius: 16, borderWidth: 1, borderColor: '#2A2B34', marginTop: 10, marginBottom: 15 },
+  modalTotalLabel: { color: '#8A8D98', fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
   modalTotalValue: { fontSize: 22, fontWeight: '900' },
   
-  saveButton: { flexDirection: 'row', backgroundColor: '#B04FCF', height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
-  saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 14, marginLeft: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  saveButton: { flexDirection: 'row', backgroundColor: '#D4FF3A', height: 55, borderRadius: 16, justifyContent: 'center', alignItems: 'center' },
+  saveButtonText: { color: '#0B0B0F', fontWeight: 'bold', fontSize: 14, marginLeft: 10, textTransform: 'uppercase', letterSpacing: 1 },
 });

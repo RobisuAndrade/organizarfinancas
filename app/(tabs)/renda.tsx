@@ -1,11 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, ref, set, update } from 'firebase/database';
 import { db } from '../../firebaseConfig';
+import { useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
 // FUNÇÕES AUXILIARES
@@ -27,6 +28,7 @@ const formatarNomeMes = (anoMes: string) => {
 
 export default function Salarios() {
   const router = useRouter();
+  const { avisar } = useDialogo();
 
   const [abaAtiva, setAbaAtiva] = useState<'Robinho' | 'Vanessinha'>('Robinho');
   const [mesAtivo, setMesAtivo] = useState(obterMesAtualString());
@@ -113,9 +115,9 @@ export default function Salarios() {
         await update(ref(db, 'salarios'), { totalEntradas: totalEntradas });
       }
 
-      Alert.alert("Sucesso", `Renda de ${formatarNomeMes(mesAtivo)} salva!`);
+      avisar("Salvo!", `Renda de ${formatarNomeMes(mesAtivo)} salva!`, 'sucesso');
     } catch (error) {
-      Alert.alert("Erro", "Não foi possível salvar os dados.");
+      avisar("Erro", "Não foi possível salvar os dados.", 'erro');
     }
   };
 
@@ -131,7 +133,7 @@ export default function Salarios() {
         <TextInput 
           style={styles.input} 
           placeholder="R$ 0,00" 
-          placeholderTextColor="#666" 
+          placeholderTextColor="#8A8D98" 
           value={valor} 
           onChangeText={(txt) => setValor(formatarInputMoeda(txt))} 
           keyboardType="numeric" 
@@ -151,7 +153,7 @@ export default function Salarios() {
             <View style={styles.gestaoDivisor} />
             <View style={styles.gestaoColuna}>
               <Text style={styles.gestaoTag}>20% Emerg.</Text>
-              <Text style={[styles.gestaoValor, { color: '#B04FCF' }]}>{formatarMoeda(v20b)}</Text>
+              <Text style={[styles.gestaoValor, { color: '#D4FF3A' }]}>{formatarMoeda(v20b)}</Text>
             </View>
           </View>
         )}
@@ -168,7 +170,7 @@ export default function Salarios() {
           
           <View style={styles.header}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-              <Feather name="arrow-left" size={24} color="#B04FCF" />
+              <Feather name="arrow-left" size={24} color="#D4FF3A" />
             </TouchableOpacity>
             <View>
               <Text style={styles.titulo}>Nossa Renda</Text>
@@ -178,25 +180,25 @@ export default function Salarios() {
 
           <View style={styles.calendarioContainer}>
             <TouchableOpacity style={styles.calendarioBotao} onPress={() => mudarMes(-1)}>
-              <Feather name="chevron-left" size={24} color="#FFF" />
+              <Feather name="chevron-left" size={24} color="#F4F5F7" />
             </TouchableOpacity>
             <View style={styles.calendarioCentro}>
-              <Feather name="calendar" size={16} color="#B04FCF" style={{ marginRight: 8 }} />
+              <Feather name="calendar" size={16} color="#D4FF3A" style={{ marginRight: 8 }} />
               <Text style={styles.calendarioTexto}>{formatarNomeMes(mesAtivo)}</Text>
             </View>
             <TouchableOpacity style={styles.calendarioBotao} onPress={() => mudarMes(1)}>
-              <Feather name="chevron-right" size={24} color="#FFF" />
+              <Feather name="chevron-right" size={24} color="#F4F5F7" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.abasContainer}>
             <TouchableOpacity activeOpacity={0.8} style={[styles.abaBotao, abaAtiva === 'Robinho' && styles.abaBotaoAtivaR]} onPress={() => setAbaAtiva('Robinho')}>
-              <Feather name="user" size={16} color={abaAtiva === 'Robinho' ? '#FFF' : '#3b82f6'} style={styles.abaIcone} />
+              <Feather name="user" size={16} color={abaAtiva === 'Robinho' ? '#F4F5F7' : '#3b82f6'} style={styles.abaIcone} />
               <Text style={[styles.abaTexto, abaAtiva === 'Robinho' && styles.abaTextoAtiva]}>Robinho</Text>
             </TouchableOpacity>
             
             <TouchableOpacity activeOpacity={0.8} style={[styles.abaBotao, abaAtiva === 'Vanessinha' && styles.abaBotaoAtivaV]} onPress={() => setAbaAtiva('Vanessinha')}>
-              <Feather name="heart" size={16} color={abaAtiva === 'Vanessinha' ? '#FFF' : '#ec4899'} style={styles.abaIcone} />
+              <Feather name="heart" size={16} color={abaAtiva === 'Vanessinha' ? '#F4F5F7' : '#ec4899'} style={styles.abaIcone} />
               <Text style={[styles.abaTexto, abaAtiva === 'Vanessinha' && styles.abaTextoAtiva]}>Vanessinha</Text>
             </TouchableOpacity>
           </View>
@@ -206,7 +208,7 @@ export default function Salarios() {
         <Animated.ScrollView 
           showsVerticalScrollIndicator={false} 
           // O paddingTop: 250 afasta os cards para baixo do cabeçalho flutuante no estado inicial
-          contentContainerStyle={{ paddingTop: 250, paddingBottom: 50, paddingHorizontal: 20 }}
+          contentContainerStyle={{ paddingTop: 250, paddingBottom: 170, paddingHorizontal: 20 }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
@@ -265,14 +267,14 @@ export default function Salarios() {
 
                   <View style={styles.breakdownRow}>
                     <Text style={styles.breakdownLabel}>Reserva de Emergência</Text>
-                    <Text style={[styles.breakdownValue, { color: '#B04FCF' }]}>{formatarMoeda(aba20Emergencia)}</Text>
+                    <Text style={[styles.breakdownValue, { color: '#D4FF3A' }]}>{formatarMoeda(aba20Emergencia)}</Text>
                   </View>
                 </View>
               )}
             </View>
 
             <TouchableOpacity activeOpacity={0.8} style={styles.saveButton} onPress={salvarDados}>
-              <Feather name="save" size={20} color="#FFF" />
+              <Feather name="save" size={20} color="#0B0B0F" />
               <Text style={styles.saveButtonText}>Gravar Mês ({formatarNomeMes(mesAtivo)})</Text>
             </TouchableOpacity>
 
@@ -284,7 +286,7 @@ export default function Salarios() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#0F0414' },
+  safeArea: { flex: 1, backgroundColor: '#0B0B0F' },
   mainWrapper: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center' },
   
   // O segredo do Cabeçalho Retrátil
@@ -293,7 +295,7 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#0F0414',
+    backgroundColor: '#0B0B0F',
     zIndex: 10,
     paddingTop: Platform.OS === 'ios' ? 50 : 40,
     paddingHorizontal: 20,
@@ -301,37 +303,37 @@ const styles = StyleSheet.create({
   },
 
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1E0A24', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2D1436' },
-  titulo: { fontSize: 24, fontWeight: 'bold', color: '#FFF' },
-  subtitulo: { fontSize: 12, color: '#888', marginTop: 2 },
+  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#1C1D25', justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: '#2A2B34' },
+  titulo: { fontSize: 24, fontWeight: 'bold', color: '#F4F5F7' },
+  subtitulo: { fontSize: 12, color: '#8A8D98', marginTop: 2 },
   
-  calendarioContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1E0A24', borderRadius: 16, borderWidth: 1, borderColor: '#B04FCF', marginBottom: 15 },
+  calendarioContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#1C1D25', borderRadius: 16, borderWidth: 1, borderColor: '#D4FF3A', marginBottom: 15 },
   calendarioBotao: { padding: 15 },
   calendarioCentro: { flexDirection: 'row', alignItems: 'center' },
-  calendarioTexto: { color: '#FFF', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase' },
+  calendarioTexto: { color: '#F4F5F7', fontSize: 16, fontWeight: 'bold', textTransform: 'uppercase' },
 
-  abasContainer: { flexDirection: 'row', backgroundColor: '#1E0A24', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#2D1436', marginBottom: 5 },
+  abasContainer: { flexDirection: 'row', backgroundColor: '#1C1D25', borderRadius: 12, padding: 4, borderWidth: 1, borderColor: '#2A2B34', marginBottom: 5 },
   abaBotao: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8 },
   abaBotaoAtivaR: { backgroundColor: '#3b82f6' }, 
   abaBotaoAtivaV: { backgroundColor: '#ec4899' }, 
   abaIcone: { marginRight: 8 },
-  abaTexto: { color: '#888', fontWeight: 'bold', fontSize: 14 },
-  abaTextoAtiva: { color: '#FFF' },
+  abaTexto: { color: '#8A8D98', fontWeight: 'bold', fontSize: 14 },
+  abaTextoAtiva: { color: '#F4F5F7' },
   
-  card: { backgroundColor: '#1E0A24', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#2D1436', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
+  card: { backgroundColor: '#1C1D25', borderRadius: 24, padding: 20, marginBottom: 20, borderWidth: 1, borderColor: '#2A2B34', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 5 },
   
   inputBloco: { marginBottom: 25 },
-  inputLabel: { color: '#B04FCF', fontSize: 12, fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  input: { height: 50, backgroundColor: '#0F0414', borderRadius: 12, paddingHorizontal: 15, fontSize: 18, color: '#FFF', borderWidth: 1, borderColor: '#2D1436', fontWeight: '600' },
+  inputLabel: { color: '#D4FF3A', fontSize: 12, fontWeight: 'bold', marginBottom: 8, textTransform: 'uppercase', letterSpacing: 1 },
+  input: { height: 50, backgroundColor: '#0B0B0F', borderRadius: 12, paddingHorizontal: 15, fontSize: 18, color: '#F4F5F7', borderWidth: 1, borderColor: '#2A2B34', fontWeight: '600' },
   
-  gestaoContainer: { flexDirection: 'row', backgroundColor: '#0F0414', marginTop: 8, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#2D1436', justifyContent: 'space-between' },
+  gestaoContainer: { flexDirection: 'row', backgroundColor: '#0B0B0F', marginTop: 8, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#2A2B34', justifyContent: 'space-between' },
   gestaoColuna: { alignItems: 'center', flex: 1 },
-  gestaoDivisor: { width: 1, backgroundColor: '#2D1436', height: '100%' },
-  gestaoTag: { color: '#888', fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4, letterSpacing: 0.5 },
-  gestaoValor: { color: '#FFF', fontSize: 13, fontWeight: 'bold' },
+  gestaoDivisor: { width: 1, backgroundColor: '#2A2B34', height: '100%' },
+  gestaoTag: { color: '#8A8D98', fontSize: 9, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 4, letterSpacing: 0.5 },
+  gestaoValor: { color: '#F4F5F7', fontSize: 13, fontWeight: 'bold' },
 
-  subtotalPessoa: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#2D1436' },
-  subtotalPessoaTexto: { color: '#888', fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
+  subtotalPessoa: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#2A2B34' },
+  subtotalPessoaTexto: { color: '#8A8D98', fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
   subtotalPessoaValor: { fontSize: 22, fontWeight: '900' },
 
   totalCard: { backgroundColor: '#00E67610', borderRadius: 24, padding: 25, marginBottom: 20, borderWidth: 1, borderColor: '#00E67640', alignItems: 'center', shadowColor: '#00E676', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
@@ -343,8 +345,8 @@ const styles = StyleSheet.create({
   breakdownTitle: { color: '#00E676', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', marginBottom: 15, letterSpacing: 1.5, opacity: 0.8 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
   breakdownLabel: { color: '#00E676', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
-  breakdownValue: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+  breakdownValue: { color: '#F4F5F7', fontSize: 15, fontWeight: 'bold' },
 
-  saveButton: { flexDirection: 'row', backgroundColor: '#B04FCF', height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
-  saveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16, marginLeft: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  saveButton: { flexDirection: 'row', backgroundColor: '#D4FF3A', height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 5 },
+  saveButtonText: { color: '#0B0B0F', fontWeight: 'bold', fontSize: 16, marginLeft: 10, textTransform: 'uppercase', letterSpacing: 1 },
 });

@@ -7,7 +7,19 @@ export const converterParaNumero = (valorString: string) => {
   return isNaN(numero) ? 0 : numero;
 };
 
+// MODO OCULTO (olhinho da Home): quando ligado, todo valor em dinheiro vira "R$ ••••".
+// É uma chave global simples; o Provider (hooks/usePrivacidade.tsx) liga/desliga
+// e recarrega as telas pra refletir.
+let valoresOcultos = false;
+export const definirValoresOcultos = (v: boolean) => { valoresOcultos = v; };
+export const estaOculto = () => valoresOcultos;
+export const TEXTO_OCULTO = 'R$ ••••';
+
+// Para os pontos da tela que montam "R$ ..." na mão
+export const mascarar = (texto: string) => (valoresOcultos ? TEXTO_OCULTO : texto);
+
 export const formatarMoeda = (valor: number) => {
+  if (valoresOcultos) return TEXTO_OCULTO;
   return valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 };
 
