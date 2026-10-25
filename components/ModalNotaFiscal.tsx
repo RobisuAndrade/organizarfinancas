@@ -27,6 +27,9 @@ interface DadosNota {
   esperado?: number; // quantidade de itens que a própria nota diz ter (se a página informar)
 }
 
+// Apaga o armazenamento local da página (o modo anônimo já limpa cookies, cache e histórico)
+const LIMPAR_ARMAZENAMENTO = 'try { localStorage.clear(); sessionStorage.clear(); } catch (e) {} true;';
+
 // Identificação de um Chrome comum de celular (o navegador embutido do app costuma ser barrado mais vezes)
 const USER_AGENT_CHROME =
   'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
@@ -46,6 +49,8 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   const [tentativa, setTentativa] = useState(0);
   const [problemaPagina, setProblemaPagina] = useState<'bloqueio' | 'rede' | null>(null);
   const [progresso, setProgresso] = useState<{ lidos: number; esperado: number } | null>(null);
+  // Versão site: mensagem de erro mostrada dentro da própria tela (com botão de tentar de novo)
+  const [erroWeb, setErroWeb] = useState<string | null>(null);
 
   // Quantas vezes já tentamos sozinhos depois de a Sefaz recusar o acesso
   const autoTentativas = useRef(0);
@@ -144,9 +149,16 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   // Versão SITE (navegador): quem lê a página da Sefaz é o servidor do site (/api/nota)
   const lerNotaPeloServidor = async (url: string) => {
     const sessaoAtual = sessao.current;
+    setErroWeb(null);
     setEtapa('extraindo');
+    const controle = new AbortController();
+    const timer = setTimeout(() => controle.abort(), 40000);
     try {
-      const resp = await fetch(`/api/nota?url=${encodeURIComponent(url)}`);
+      // cache: 'no-store' + carimbo de hora: cada tentativa é uma busca nova, nada fica guardado
+      const resp = await fetch(`/api/nota?url=${encodeURIComponent(url)}&_t=${Date.now()}`, {
+        cache: 'no-store',
+        signal: controle.signal,
+      });
       let json: any = null;
       try {
         json = await resp.json();
@@ -159,8 +171,9 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
       prepararDados(json.dados);
     } catch (e: any) {
       if (sessaoAtual !== sessao.current) return;
-      setEtapa('camera');
-      avisar('Não consegui ler a nota', e?.message || 'Tente de novo em instantes.', 'erro');
+      setErroWeb(e?.name === 'AbortError' ? 'A Sefaz demorou demais para responder. Tente de novo.' : e?.message || 'Tente de novo em instantes.');
+    } finally {
+      clearTimeout(timer);
     }
   };
 
@@ -354,6 +367,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
   const resetarEFechar = () => {
     sessao.current += 1;
     autoTentativas.current = 0;
+    setErroWeb(null);
     setProblemaPagina(null);
     setProgresso(null);
     setEtapa('camera');
@@ -370,6 +384,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
     <Modal visible={visivel && etapa === 'camera'} animationType="fade" transparent statusBarTranslucent onRequestClose={resetarEFechar}>
       <View style={styles.fundoScanner}>
         <LeitorNota aoLerCodigo={aoLerQrCode} aoCancelar={resetarEFechar} />
+        <DialogoNoModal />
       </View>
     </Modal>
 
@@ -390,10 +405,32 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
 
           {etapa === 'extraindo' && Platform.OS === 'web' && (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 30 }}>
-              <ActivityIndicator color="#D4FF3A" size="large" />
-              <Text style={[styles.avisoTexto, { marginTop: 20 }]}>
-                Buscando os produtos na Sefaz... pode levar alguns segundos.
-              </Text>
+              {erroWeb ? (
+                <>
+                  <Feather name="alert-triangle" size={40} color="#FF3B5C" />
+                  <Text style={[styles.avisoTexto, { marginTop: 16 }]}>{erroWeb}</Text>
+                  <TouchableOpacity style={[styles.botaoSalvar, { alignSelf: 'stretch' }]} onPress={() => lerNotaPeloServidor(urlNota)}>
+                    <Feather name="refresh-cw" size={18} color="#0B0B0F" style={{ marginRight: 10 }} />
+                    <Text style={[styles.textoBotao, { color: '#0B0B0F' }]}>Tentar de novo</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.botaoForcarLeitura, { alignSelf: 'stretch', marginTop: 10 }]}
+                    onPress={() => {
+                      setErroWeb(null);
+                      setEtapa('camera');
+                    }}
+                  >
+                    <Text style={styles.textoBotao}>Escanear outra nota</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <ActivityIndicator color="#D4FF3A" size="large" />
+                  <Text style={[styles.avisoTexto, { marginTop: 20 }]}>
+                    Buscando os produtos na Sefaz... pode levar alguns segundos.
+                  </Text>
+                </>
+              )}
             </View>
           )}
 
@@ -425,6 +462,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
                   ref={webviewRef}
                   source={{ uri: urlNota }}
                   injectedJavaScript={scriptExtratorSefaz}
+                  injectedJavaScriptBeforeContentLoaded={LIMPAR_ARMAZENAMENTO}
                   onMessage={receberDadosDaTela}
                   onError={() => setProblemaPagina('rede')}
                   incognito
