@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import { ActivityIndicator, FlatList, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { db } from '../firebaseConfig';
+import AvoidTeclado from './AvoidTeclado';
 import { DialogoNoModal, useDialogo } from '../hooks/useDialogo';
 import { categorizarProduto, infoCategoria } from '../utils/categoriasMercado';
 import LeitorNota from './LeitorNota';
@@ -390,6 +391,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
 
     <Modal visible={visivel && etapa !== 'camera'} animationType="slide" transparent>
       <View style={styles.overlay}>
+        <AvoidTeclado style={{ justifyContent: 'flex-end' }}>
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.titulo}>
@@ -580,6 +582,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
             </View>
           )}
         </SafeAreaView>
+        </AvoidTeclado>
       </View>
       <DialogoNoModal />
     </Modal>

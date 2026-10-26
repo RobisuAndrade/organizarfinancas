@@ -5,7 +5,7 @@ import { ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from 
 import {
   Animated,
   Easing,
-  KeyboardAvoidingView,
+  Keyboard,
   LayoutAnimation,
   Modal,
   PanResponder,
@@ -21,6 +21,7 @@ import {
   View,
 } from 'react-native';
 import { db } from '../firebaseConfig';
+import AvoidTeclado from './AvoidTeclado';
 import { DialogoNoModal, useDialogo } from '../hooks/useDialogo';
 import { CATEGORIAS_MERCADO, categorizarProduto, chaveProduto, infoCategoria, normalizar } from '../utils/categoriasMercado';
 import { formatarMoeda } from '../utils/formatadores';
@@ -694,6 +695,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   const [filtro, setFiltro] = useState('Todas');
   const [celebrando, setCelebrando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [alturaTeclado, setAlturaTeclado] = useState(0);
 
   useEffect(() => {
     const unsubListas = onValue(ref(db, 'listasCompras'), (snap) => setListas(snap.val() || {}));
@@ -868,10 +870,13 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
     if (editandoId) {
       const id = editandoId;
       const novosDados = { nome: nomeItem.trim(), qtd: String(qtdItem), categoria: categoriaFinal || 'Outros' };
+      suavizarLayout();
+      Keyboard.dismiss();
       setEditandoId(null);
       setNomeItem('');
       setQtdItem(1);
       setCatEscolhida(null);
+      setAddAberto(false);
       vibrar('leve');
       await update(ref(db, `listasCompras/${listaAtualId}/itens/${id}`), novosDados);
       return;
@@ -934,7 +939,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   return (
     <Modal visible={montado} animationType="none" transparent statusBarTranslucent onRequestClose={voltarOuFechar}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <AvoidTeclado aoMudarAltura={setAlturaTeclado}>
         <View style={styles.overlay}>
           <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.85)', opacity: entrada }]}>
             <Pressable style={StyleSheet.absoluteFill} onPress={fecharTudo} />
@@ -944,7 +949,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
             style={[
               styles.sheet,
               telaCheia && styles.sheetCheia,
-              telaCheia && { height: alturaTela, maxHeight: alturaTela, flexGrow: 0, flexShrink: 0 },
+              telaCheia && { height: Math.max(300, alturaTela - alturaTeclado), maxHeight: Math.max(300, alturaTela - alturaTeclado), flexGrow: 0, flexShrink: 0 },
               { opacity: entrada.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.9, 1] }), transform: [{ translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [alturaTela * 0.35, 0] }) }] },
             ]}
           >
@@ -1224,7 +1229,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
           {celebrando && <Celebracao total={totalItens} aoTerminar={() => setCelebrando(false)} />}
         </View>
-      </KeyboardAvoidingView>
+      </AvoidTeclado>
       <DialogoNoModal />
     </Modal>
   );

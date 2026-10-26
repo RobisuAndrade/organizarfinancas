@@ -1,7 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import AvoidTeclado, { ScrollTeclado } from './AvoidTeclado';
+import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/theme';
 import { auth } from '../firebaseConfig';
 
@@ -49,8 +50,8 @@ export default function TelaLogin() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <AvoidTeclado>
+        <ScrollTeclado contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <View style={styles.logo}>
             <Feather name="lock" size={30} color={Colors.background} />
           </View>
@@ -101,8 +102,8 @@ export default function TelaLogin() {
           </View>
 
           <Text style={styles.rodape}>Depois de entrar, este aparelho fica lembrado e não pede a senha de novo.</Text>
-        </ScrollView>
-      </KeyboardAvoidingView>
+        </ScrollTeclado>
+      </AvoidTeclado>
     </SafeAreaView>
   );
 }

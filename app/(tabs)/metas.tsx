@@ -1,11 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, FlatList, KeyboardAvoidingView, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, FlatList, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, push, ref, set } from 'firebase/database';
 import { db } from '../../firebaseConfig';
+import AvoidTeclado from '../../components/AvoidTeclado';
 import { DialogoNoModal, useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
@@ -266,7 +267,7 @@ export default function NossasMetas() {
         {/* MODAL DE TRANSAÇÃO */}
         <Modal visible={modalAberto} transparent animationType="slide">
           <View style={styles.modalOverlay}>
-            <KeyboardAvoidingView behavior="padding" style={{ width: '100%' }}>
+            <AvoidTeclado style={{ justifyContent: 'center' }}>
               <View style={styles.modalContent}>
                 <Text style={styles.modalTitle}>Atualizar Saldo: {contaSelecionada}</Text>
                 
@@ -313,7 +314,7 @@ export default function NossasMetas() {
                   </TouchableOpacity>
                 </View>
               </View>
-            </KeyboardAvoidingView>
+            </AvoidTeclado>
           </View>
           <DialogoNoModal />
         </Modal>

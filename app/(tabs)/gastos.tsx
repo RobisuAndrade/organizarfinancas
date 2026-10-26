@@ -1,11 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { Animated, KeyboardAvoidingView, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../../firebaseConfig';
+import AvoidTeclado, { ScrollTeclado } from '../../components/AvoidTeclado';
 import { DialogoNoModal, useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
@@ -353,14 +354,14 @@ export default function GestaoGastos() {
         {/* MODAL DO FORMULÁRIO */}
         <Modal visible={formAberto} animationType="slide" transparent>
           <View style={styles.modalFullOverlay}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <AvoidTeclado style={{ justifyContent: 'flex-end' }}>
               <View style={styles.formModalContainer}>
                 <View style={styles.modalHeaderClose}>
                   <Text style={styles.formTitle}>{itemEditando ? "Editar Despesa" : "Nova Despesa"}</Text>
                   <TouchableOpacity onPress={fecharFormulario} style={styles.btnCloseForm}><Feather name="x" size={24} color="#F4F5F7" /></TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+                <ScrollTeclado showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                   <View style={styles.rowInputs}>
                     <View style={[styles.inputWrapper, { width: '64%' }]}>
                       <Text style={styles.inputLabelMicro}>Descrição Leve</Text>
@@ -430,9 +431,9 @@ export default function GestaoGastos() {
                   <TouchableOpacity style={styles.submitButton} onPress={salvarGasto}>
                     <Text style={styles.submitButtonText}>{itemEditando ? "Atualizar Gasto" : "Gravar Gasto"}</Text>
                   </TouchableOpacity>
-                </ScrollView>
+                </ScrollTeclado>
               </View>
-            </KeyboardAvoidingView>
+            </AvoidTeclado>
           </View>
           <DialogoNoModal />
         </Modal>

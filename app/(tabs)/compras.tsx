@@ -1,12 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Dimensions, KeyboardAvoidingView, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { Animated, Dimensions, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import BotaoPadrao from '../../components/BotaoPadrao';
 import { db } from '../../firebaseConfig';
+import AvoidTeclado, { ScrollTeclado } from '../../components/AvoidTeclado';
 
 // ----------------------------------------------------
 // OPÇÕES DE CATEGORIZAÇÃO (COMPRAS)
@@ -575,7 +576,7 @@ export default function Compras() {
         {/* MODAL DO FORMULÁRIO PADRÃO (NOVA COMPRA/EDIÇÃO) */}
         <Modal visible={formAberto} animationType="slide" transparent>
           <View style={styles.modalFullOverlay}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <AvoidTeclado style={{ justifyContent: 'flex-end' }}>
               <View style={styles.formModalContainer}>
                 <View style={styles.formModalHeader}>
                   <Text style={styles.formTitle}>{itemEditando ? "Editando Item" : "Novo Item"}</Text>
@@ -584,7 +585,7 @@ export default function Compras() {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+                <ScrollTeclado showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                   <Text style={styles.inputLabelMicro}>O que vamos comprar?</Text>
                   <TextInput style={styles.input} placeholder="Ex: Cimento, Geladeira..." placeholderTextColor="#8A8D98" value={nome} onChangeText={setNome} />
                   
@@ -634,16 +635,16 @@ export default function Compras() {
                     style={{ marginTop: 10 }}
                   />
 
-                </ScrollView>
+                </ScrollTeclado>
               </View>
-            </KeyboardAvoidingView>
+            </AvoidTeclado>
           </View>
         </Modal>
 
         {/* --- NOVO: MODAL DE CHECKOUT (GERAR GASTO) --- */}
         <Modal visible={modalCheckoutAberto} animationType="slide" transparent>
           <View style={styles.modalFullOverlay}>
-            <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, justifyContent: 'flex-end' }}>
+            <AvoidTeclado style={{ justifyContent: 'flex-end' }}>
               <View style={styles.formModalContainer}>
                 
                 <View style={styles.formModalHeader}>
@@ -656,7 +657,7 @@ export default function Compras() {
                   </TouchableOpacity>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+                <ScrollTeclado showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                   <View style={styles.rowInputs}>
                     <View style={[styles.inputWrapper, { width: '48%' }]}>
                       <Text style={styles.inputLabelMicro}>Valor Real Pago</Text>
@@ -723,9 +724,9 @@ export default function Compras() {
                     style={{ marginTop: 5 }}
                   />
 
-                </ScrollView>
+                </ScrollTeclado>
               </View>
-            </KeyboardAvoidingView>
+            </AvoidTeclado>
           </View>
         </Modal>
 

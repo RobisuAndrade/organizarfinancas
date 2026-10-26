@@ -7,6 +7,7 @@ import { Animated, Platform, SafeAreaView, StyleSheet, Text, TextInput, Touchabl
 import { onValue, ref, set, update } from 'firebase/database';
 import { db } from '../../firebaseConfig';
 import { useDialogo } from '../../hooks/useDialogo';
+import { useAlinharAoTeclado, useAlturaTeclado } from '../../components/AvoidTeclado';
 
 // ----------------------------------------------------
 // FUNÇÕES AUXILIARES
@@ -47,6 +48,9 @@ export default function Salarios() {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnimUp = useRef(new Animated.Value(30)).current;
   const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<any>(null);
+  const { onTouchEnd: alinharCampo } = useAlinharAoTeclado(scrollRef);
+  const alturaTeclado = useAlturaTeclado();
 
   // Lógica do Cabeçalho Retrátil (Header Flutuante)
   // 230 é aproximadamente a altura somada do Header + Calendário + Abas
@@ -206,9 +210,12 @@ export default function Salarios() {
 
         {/* ÁREA DE ROLAGEM COM ANIMATED SCROLLVIEW */}
         <Animated.ScrollView 
+          ref={scrollRef}
+          onTouchEnd={alinharCampo}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false} 
           // O paddingTop: 250 afasta os cards para baixo do cabeçalho flutuante no estado inicial
-          contentContainerStyle={{ paddingTop: 250, paddingBottom: 170, paddingHorizontal: 20 }}
+          contentContainerStyle={{ paddingTop: 250, paddingBottom: 170 + alturaTeclado, paddingHorizontal: 20 }}
           onScroll={Animated.event(
             [{ nativeEvent: { contentOffset: { y: scrollY } } }],
             { useNativeDriver: true }
