@@ -432,12 +432,14 @@ function ItemLinha({
   preco,
   aoMarcar,
   aoExcluir,
+  aoEditar,
 }: {
   item: ItemLista;
   categoria: string;
   preco: HistoricoPreco | null;
   aoMarcar: () => void;
   aoExcluir: () => void;
+  aoEditar: () => void;
 }) {
   const cat = infoCategoria(categoria);
   const marc = useRef(new Animated.Value(item.comprado ? 1 : 0)).current;
@@ -514,9 +516,14 @@ function ItemLinha({
         )}
       </View>
 
-      <TouchableOpacity onPress={aoExcluir} style={styles.btnLixo}>
-        <Feather name="trash-2" size={16} color={COR.vermelho} />
-      </TouchableOpacity>
+      <View style={styles.acoesItem}>
+        <TouchableOpacity onPress={aoExcluir} style={styles.btnLixo}>
+          <Feather name="trash-2" size={16} color={COR.vermelho} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={aoEditar} style={styles.btnLixo}>
+          <Feather name="edit-2" size={16} color={COR.lima} />
+        </TouchableOpacity>
+      </View>
     </Animated.View>
   );
 }
@@ -686,6 +693,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   const [catEscolhida, setCatEscolhida] = useState<string | null>(null);
   const [filtro, setFiltro] = useState('Todas');
   const [celebrando, setCelebrando] = useState(false);
+  const [editandoId, setEditandoId] = useState<string | null>(null);
 
   useEffect(() => {
     const unsubListas = onValue(ref(db, 'listasCompras'), (snap) => setListas(snap.val() || {}));
@@ -800,6 +808,24 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
     setNomeItem('');
     setQtdItem(1);
     setCatEscolhida(null);
+    setEditandoId(null);
+  };
+
+  const iniciarEdicao = (it: ItemLista & { categoria: string }) => {
+    suavizarLayout();
+    setEditandoId(it.id);
+    setNomeItem(it.nome);
+    setQtdItem(Math.max(1, Math.min(QTD_MAXIMA, parseInt(it.qtd, 10) || 1)));
+    setCatEscolhida(it.categoria);
+    setAddAberto(true);
+  };
+
+  const cancelarEdicao = () => {
+    suavizarLayout();
+    setEditandoId(null);
+    setNomeItem('');
+    setQtdItem(1);
+    setCatEscolhida(null);
   };
 
   const iniciarCriacao = () => {
@@ -839,6 +865,17 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   const adicionarItem = async () => {
     if (!listaAtualId || !nomeItem.trim()) return;
+    if (editandoId) {
+      const id = editandoId;
+      const novosDados = { nome: nomeItem.trim(), qtd: String(qtdItem), categoria: categoriaFinal || 'Outros' };
+      setEditandoId(null);
+      setNomeItem('');
+      setQtdItem(1);
+      setCatEscolhida(null);
+      vibrar('leve');
+      await update(ref(db, `listasCompras/${listaAtualId}/itens/${id}`), novosDados);
+      return;
+    }
     const novoItemRef = push(ref(db, `listasCompras/${listaAtualId}/itens`));
     const dados = {
       nome: nomeItem.trim(),
@@ -861,6 +898,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   const excluirItem = async (itemId: string) => {
     if (!listaAtualId) return;
+    if (editandoId === itemId) cancelarEdicao();
     await remove(ref(db, `listasCompras/${listaAtualId}/itens/${itemId}`));
   };
 
@@ -1045,7 +1083,16 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                 {/* ADICIONAR ITEM */}
                 {addVisivel ? (
                   <View style={styles.cardAdicionar}>
-                    {totalItens > 0 && (
+                    {!!editandoId && (
+                      <View style={styles.editandoTopo}>
+                        <Feather name="edit-2" size={13} color={COR.lima} />
+                        <Text style={styles.editandoTexto}>Editando item</Text>
+                        <TouchableOpacity onPress={cancelarEdicao} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                          <Text style={styles.editandoCancelar}>Cancelar</Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                    {totalItens > 0 && !editandoId && (
                       <TouchableOpacity style={styles.recolher} onPress={alternarAdd} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
                         <Feather name="chevron-up" size={16} color={COR.cinza} />
                       </TouchableOpacity>
@@ -1090,8 +1137,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                         disabled={!nomeItem.trim()}
                         activeOpacity={0.85}
                       >
-                        <Feather name="plus" size={18} color={COR.grafite} style={{ marginRight: 6 }} />
-                        <Text style={styles.btnPrimarioTexto}>Adicionar</Text>
+                        <Feather name={editandoId ? 'check' : 'plus'} size={18} color={COR.grafite} style={{ marginRight: 6 }} />
+                        <Text style={styles.btnPrimarioTexto}>{editandoId ? 'Salvar' : 'Adicionar'}</Text>
                       </TouchableOpacity>
                     </View>
                   </View>
@@ -1166,6 +1213,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                         preco={buscarMenorPreco(it.nome)}
                         aoMarcar={() => alternarComprado(it.id, it.comprado)}
                         aoExcluir={() => excluirItem(it.id)}
+                        aoEditar={() => iniciarEdicao(it)}
                       />
                     ))
                   )}
@@ -1237,6 +1285,10 @@ const styles = StyleSheet.create({
   cardListaNome: { color: COR.texto, fontSize: 14, fontWeight: 'bold' },
   cardListaInfo: { color: COR.cinza, fontSize: 11, marginTop: 3 },
   btnLixo: { padding: 6 },
+  acoesItem: { alignItems: 'center', gap: 2 },
+  editandoTopo: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  editandoTexto: { flex: 1, color: COR.lima, fontSize: 12, fontWeight: 'bold' },
+  editandoCancelar: { color: COR.cinza, fontSize: 12, fontWeight: 'bold' },
   miniTrilho: { height: 5, borderRadius: 3, backgroundColor: COR.card, overflow: 'hidden', marginTop: 8 },
   miniPreench: { height: '100%', borderRadius: 3 },
 
