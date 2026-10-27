@@ -692,41 +692,14 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   const [buscaAberta, setBuscaAberta] = useState(false);
   const [busca, setBusca] = useState('');
 
-  // Cabeçalho que some ao rolar a lista para baixo e volta ao rolar para cima
-  const topoAnim = useRef(new Animated.Value(1)).current;
+  // Cabeçalho que acompanha a rolagem: sai suavemente ao descer a lista e volta ao subir
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<any>(null);
   const [alturaTopo, setAlturaTopo] = useState(0);
-  const topoOculto = useRef(false);
-  const ultimoY = useRef(0);
-  const tamanhos = useRef({ conteudo: 0, visivel: 0 });
-
-  const mostrarTopo = () => {
-    if (!topoOculto.current) return;
-    topoOculto.current = false;
-    Animated.timing(topoAnim, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  };
-  const ocultarTopo = () => {
-    if (topoOculto.current) return;
-    topoOculto.current = true;
-    Animated.timing(topoAnim, { toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  };
-  const aoRolar = (e: any) => {
-    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
-    const y = contentOffset.y;
-    const dy = y - ultimoY.current;
-    ultimoY.current = y;
-    tamanhos.current = { conteudo: contentSize.height, visivel: layoutMeasurement.height };
-    if (y <= 8) {
-      mostrarTopo();
-      return;
-    }
-    if (dy > 6) {
-      // só esconde se sobrar rolagem suficiente (senão a tela ficaria piscando)
-      if (alturaTopo > 0 && contentSize.height - layoutMeasurement.height > alturaTopo + 40) ocultarTopo();
-    } else if (dy < -6) {
-      const noFim = y + layoutMeasurement.height >= contentSize.height - 2; // ignora o "quique" no fim da lista
-      if (!noFim) mostrarTopo();
-    }
-  };
+  const translateTopo = useMemo(
+    () => Animated.multiply(Animated.diffClamp(scrollY, 0, Math.max(alturaTopo, 1)), -1),
+    [alturaTopo]
+  );
   const [nomeItem, setNomeItem] = useState('');
   const [qtdItem, setQtdItem] = useState(1);
   const [catEscolhida, setCatEscolhida] = useState<string | null>(null);
@@ -847,9 +820,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   const abrirLista = (id: string | null) => {
     suavizarLayout();
-    topoOculto.current = false;
-    ultimoY.current = 0;
-    topoAnim.setValue(1);
+    scrollY.setValue(0);
     setListaAtualId(id);
     setFiltro('Todas');
     setAddAberto(false);
@@ -864,7 +835,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   const iniciarEdicao = (it: ItemLista & { categoria: string }) => {
     suavizarLayout();
-    mostrarTopo();
+    scrollRef.current?.scrollTo?.({ y: 0, animated: true });
     setEditandoId(it.id);
     setNomeItem(it.nome);
     setQtdItem(Math.max(1, Math.min(QTD_MAXIMA, parseInt(it.qtd, 10) || 1)));
@@ -1111,13 +1082,39 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
             ) : (
               // ───────── LISTA ABERTA ─────────
               <Aparecer key={`lista-${listaAtual.id}`} cheio>
-                <Animated.View
-                  style={{
-                    overflow: 'hidden',
-                    opacity: topoAnim,
-                    height: alturaTopo > 0 ? topoAnim.interpolate({ inputRange: [0, 1], outputRange: [0, alturaTopo] }) : undefined,
-                  }}
+                <View style={{ flex: 1, overflow: 'hidden' }}>
+                {/* ITENS */}
+                <Animated.ScrollView
+                  ref={scrollRef}
+                  onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+                  scrollEventThrottle={16}
+                  contentContainerStyle={{ paddingTop: alturaTopo }}
+                  style={{ flex: 1 }}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
                 >
+                  {itensVisiveis.length === 0 ? (
+                    <View style={styles.vazio}>
+                      <Feather name="shopping-bag" size={36} color={COR.borda} />
+                      <Text style={styles.vazioTexto}>
+                        {totalItens === 0 ? 'Adicione os produtos que precisam comprar.' : termoBusca ? 'Nada encontrado com esse nome.' : 'Nenhum item nessa categoria.'}
+                      </Text>
+                    </View>
+                  ) : (
+                    itensVisiveis.map((it) => (
+                      <ItemLinha
+                        key={it.id}
+                        item={it}
+                        categoria={it.categoria}
+                        preco={buscarMenorPreco(it.nome)}
+                        aoMarcar={() => alternarComprado(it.id, it.comprado)}
+                        aoExcluir={() => excluirItem(it.id)}
+                        aoEditar={() => iniciarEdicao(it)}
+                      />
+                    ))
+                  )}
+                </Animated.ScrollView>
+                  <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: COR.card, transform: [{ translateY: translateTopo }] }}>
                 <View
                   onLayout={(e) => {
                     const h = Math.round(e.nativeEvent.layout.height);
@@ -1328,44 +1325,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                 )}
 
                 </View>
-                </Animated.View>
-
-                {/* ITENS */}
-                <ScrollView
-                  onScroll={aoRolar}
-                  onLayout={(e) => {
-                    tamanhos.current.visivel = e.nativeEvent.layout.height;
-                  }}
-                  scrollEventThrottle={16}
-                  onContentSizeChange={(_w, h) => {
-                    tamanhos.current.conteudo = h;
-                    if (h <= tamanhos.current.visivel + 1) mostrarTopo();
-                  }}
-                  style={{ flex: 1, marginTop: totalItens > 0 ? 0 : 8 }}
-                  showsVerticalScrollIndicator={false}
-                  keyboardShouldPersistTaps="handled"
-                >
-                  {itensVisiveis.length === 0 ? (
-                    <View style={styles.vazio}>
-                      <Feather name="shopping-bag" size={36} color={COR.borda} />
-                      <Text style={styles.vazioTexto}>
-                        {totalItens === 0 ? 'Adicione os produtos que precisam comprar.' : termoBusca ? 'Nada encontrado com esse nome.' : 'Nenhum item nessa categoria.'}
-                      </Text>
-                    </View>
-                  ) : (
-                    itensVisiveis.map((it) => (
-                      <ItemLinha
-                        key={it.id}
-                        item={it}
-                        categoria={it.categoria}
-                        preco={buscarMenorPreco(it.nome)}
-                        aoMarcar={() => alternarComprado(it.id, it.comprado)}
-                        aoExcluir={() => excluirItem(it.id)}
-                        aoEditar={() => iniciarEdicao(it)}
-                      />
-                    ))
-                  )}
-                </ScrollView>
+                  </Animated.View>
+                </View>
               </Aparecer>
             )}
           </Animated.View>
