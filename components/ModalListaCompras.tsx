@@ -691,6 +691,42 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   const [addAberto, setAddAberto] = useState(false);
   const [buscaAberta, setBuscaAberta] = useState(false);
   const [busca, setBusca] = useState('');
+
+  // Cabeçalho que some ao rolar a lista para baixo e volta ao rolar para cima
+  const topoAnim = useRef(new Animated.Value(1)).current;
+  const [alturaTopo, setAlturaTopo] = useState(0);
+  const topoOculto = useRef(false);
+  const ultimoY = useRef(0);
+  const tamanhos = useRef({ conteudo: 0, visivel: 0 });
+
+  const mostrarTopo = () => {
+    if (!topoOculto.current) return;
+    topoOculto.current = false;
+    Animated.timing(topoAnim, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  };
+  const ocultarTopo = () => {
+    if (topoOculto.current) return;
+    topoOculto.current = true;
+    Animated.timing(topoAnim, { toValue: 0, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
+  };
+  const aoRolar = (e: any) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    const y = contentOffset.y;
+    const dy = y - ultimoY.current;
+    ultimoY.current = y;
+    tamanhos.current = { conteudo: contentSize.height, visivel: layoutMeasurement.height };
+    if (y <= 8) {
+      mostrarTopo();
+      return;
+    }
+    if (dy > 6) {
+      // só esconde se sobrar rolagem suficiente (senão a tela ficaria piscando)
+      if (alturaTopo > 0 && contentSize.height - layoutMeasurement.height > alturaTopo + 40) ocultarTopo();
+    } else if (dy < -6) {
+      const noFim = y + layoutMeasurement.height >= contentSize.height - 2; // ignora o "quique" no fim da lista
+      if (!noFim) mostrarTopo();
+    }
+  };
   const [nomeItem, setNomeItem] = useState('');
   const [qtdItem, setQtdItem] = useState(1);
   const [catEscolhida, setCatEscolhida] = useState<string | null>(null);
@@ -811,6 +847,9 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   const abrirLista = (id: string | null) => {
     suavizarLayout();
+    topoOculto.current = false;
+    ultimoY.current = 0;
+    topoAnim.setValue(1);
     setListaAtualId(id);
     setFiltro('Todas');
     setAddAberto(false);
@@ -825,6 +864,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   const iniciarEdicao = (it: ItemLista & { categoria: string }) => {
     suavizarLayout();
+    mostrarTopo();
     setEditandoId(it.id);
     setNomeItem(it.nome);
     setQtdItem(Math.max(1, Math.min(QTD_MAXIMA, parseInt(it.qtd, 10) || 1)));
@@ -1071,6 +1111,19 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
             ) : (
               // ───────── LISTA ABERTA ─────────
               <Aparecer key={`lista-${listaAtual.id}`} cheio>
+                <Animated.View
+                  style={{
+                    overflow: 'hidden',
+                    opacity: topoAnim,
+                    height: alturaTopo > 0 ? topoAnim.interpolate({ inputRange: [0, 1], outputRange: [0, alturaTopo] }) : undefined,
+                  }}
+                >
+                <View
+                  onLayout={(e) => {
+                    const h = Math.round(e.nativeEvent.layout.height);
+                    if (h > 0 && Math.abs(h - alturaTopo) > 1) setAlturaTopo(h);
+                  }}
+                >
                 <View style={styles.header}>
                   <TouchableOpacity onPress={() => abrirLista(null)} style={styles.closeBtn}>
                     <Feather name="arrow-left" size={20} color={COR.texto} />
@@ -1274,8 +1327,20 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   </ScrollView>
                 )}
 
+                </View>
+                </Animated.View>
+
                 {/* ITENS */}
                 <ScrollView
+                  onScroll={aoRolar}
+                  onLayout={(e) => {
+                    tamanhos.current.visivel = e.nativeEvent.layout.height;
+                  }}
+                  scrollEventThrottle={16}
+                  onContentSizeChange={(_w, h) => {
+                    tamanhos.current.conteudo = h;
+                    if (h <= tamanhos.current.visivel + 1) mostrarTopo();
+                  }}
                   style={{ flex: 1, marginTop: totalItens > 0 ? 0 : 8 }}
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
