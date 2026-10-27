@@ -1132,9 +1132,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   )}
                 </Animated.ScrollView>
                   <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: COR.card, transform: [{ translateY: translateTopo }] }}>
-                <Pressable
-                  accessible={false}
-                  onPress={() => Keyboard.dismiss()}
+                <View
                   onLayout={(e) => {
                     const h = Math.round(e.nativeEvent.layout.height);
                     if (h > 0 && Math.abs(h - alturaTopo) > 1) setAlturaTopo(h);
@@ -1182,7 +1180,11 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   </TouchableOpacity>
                 </View>
 
-                {totalItens > 0 && <BarraCarrinho feitos={totalFeitos} total={totalItens} compacta={buscaAberta} />}
+                {totalItens > 0 && (
+                  <Pressable accessible={false} onPress={() => Keyboard.dismiss()}>
+                    <BarraCarrinho feitos={totalFeitos} total={totalItens} compacta={buscaAberta} />
+                  </Pressable>
+                )}
 
                 {/* ABAS: ADICIONAR / BUSCAR */}
                 {totalItens > 0 && !editandoId && (
@@ -1343,7 +1345,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   </ScrollView>
                 )}
 
-                </Pressable>
+                </View>
                   </Animated.View>
                 </View>
               </Aparecer>
