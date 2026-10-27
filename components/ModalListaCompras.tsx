@@ -232,11 +232,13 @@ function TrilhoCarrinho({
   gatilho = 0,
   rodando = false,
   cor = COR.lima,
+  mini = false,
 }: {
   valor: Animated.Value;
   gatilho?: number;
   rodando?: boolean;
   cor?: string;
+  mini?: boolean;
 }) {
   const pulo = useRef(new Animated.Value(0)).current;
   const primeiro = useRef(true);
@@ -273,11 +275,11 @@ function TrilhoCarrinho({
   const largura = valor.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'], extrapolate: 'clamp' });
 
   return (
-    <View style={styles.trilhoWrap}>
-      <View style={styles.trilho}>
-        <Animated.View style={[styles.trilhoFill, { width: largura, backgroundColor: cor }]}>
+    <View style={[styles.trilhoWrap, mini && styles.trilhoWrapMini]}>
+      <View style={[styles.trilho, mini && styles.trilhoMini]}>
+        <Animated.View style={[styles.trilhoFill, mini && styles.trilhoMini, { width: largura, backgroundColor: cor }]}>
           {/* riscos de velocidade atrás do carrinho */}
-          <Animated.View style={[styles.riscos, { opacity: pulo.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.7] }) }]}>
+          <Animated.View style={[styles.riscos, mini && { display: 'none' }, { opacity: pulo.interpolate({ inputRange: [0, 1], outputRange: [0.18, 0.7] }) }]}>
             <View style={[styles.risco, { width: 14 }]} />
             <View style={[styles.risco, { width: 22, marginLeft: -6 }]} />
             <View style={[styles.risco, { width: 10 }]} />
@@ -285,6 +287,7 @@ function TrilhoCarrinho({
           <Animated.View
             style={[
               styles.carrinho,
+              mini && styles.carrinhoMini,
               {
                 transform: [
                   { translateY: pulo.interpolate({ inputRange: [0, 1], outputRange: [0, -8] }) },
@@ -293,7 +296,7 @@ function TrilhoCarrinho({
               },
             ]}
           >
-            <Feather name="shopping-cart" size={20} color={COR.grafite} />
+            <Feather name="shopping-cart" size={mini ? 13 : 20} color={COR.grafite} />
           </Animated.View>
         </Animated.View>
       </View>
@@ -301,7 +304,7 @@ function TrilhoCarrinho({
   );
 }
 
-function BarraCarrinho({ feitos, total }: { feitos: number; total: number }) {
+function BarraCarrinho({ feitos, total, compacta = false }: { feitos: number; total: number; compacta?: boolean }) {
   const pct = total > 0 ? feitos / total : 0;
   const valor = useRef(new Animated.Value(pct)).current;
   const anterior = useRef(feitos);
@@ -313,6 +316,18 @@ function BarraCarrinho({ feitos, total }: { feitos: number; total: number }) {
     if (feitos !== anterior.current) setGatilho((g) => g + 1);
     anterior.current = feitos;
   }, [pct, feitos]);
+
+  if (compacta) {
+    return (
+      <View style={[styles.progressoBox, styles.progressoBoxMini]}>
+        <Text style={styles.progressoMiniTexto}>{completo ? 'Completo' : `${feitos}/${total}`}</Text>
+        <View style={{ flex: 1 }}>
+          <TrilhoCarrinho valor={valor} gatilho={gatilho} cor={completo ? COR.verde : COR.lima} mini />
+        </View>
+        <Text style={[styles.progressoMiniTexto, { color: completo ? COR.verde : COR.lima }]}>{Math.round(pct * 100)}%</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.progressoBox}>
@@ -1092,6 +1107,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   style={{ flex: 1 }}
                   showsVerticalScrollIndicator={false}
                   keyboardShouldPersistTaps="handled"
+                  keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+                  onScrollBeginDrag={() => Keyboard.dismiss()}
                 >
                   {itensVisiveis.length === 0 ? (
                     <View style={styles.vazio}>
@@ -1115,7 +1132,9 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   )}
                 </Animated.ScrollView>
                   <Animated.View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, backgroundColor: COR.card, transform: [{ translateY: translateTopo }] }}>
-                <View
+                <Pressable
+                  accessible={false}
+                  onPress={() => Keyboard.dismiss()}
                   onLayout={(e) => {
                     const h = Math.round(e.nativeEvent.layout.height);
                     if (h > 0 && Math.abs(h - alturaTopo) > 1) setAlturaTopo(h);
@@ -1163,7 +1182,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   </TouchableOpacity>
                 </View>
 
-                {totalItens > 0 && <BarraCarrinho feitos={totalFeitos} total={totalItens} />}
+                {totalItens > 0 && <BarraCarrinho feitos={totalFeitos} total={totalItens} compacta={buscaAberta} />}
 
                 {/* ABAS: ADICIONAR / BUSCAR */}
                 {totalItens > 0 && !editandoId && (
@@ -1248,7 +1267,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                 {/* BUSCAR NA LISTA */}
                 {buscaAberta && totalItens > 0 && (
                   <View style={styles.cardBusca}>
-                    <CampoSuave rotulo="Buscar na lista (ex: arroz)" valor={busca} aoMudar={setBusca} icone="search" autoFocus maxLength={60} />
+                    <CampoSuave rotulo="Buscar na lista (ex: arroz)" valor={busca} aoMudar={setBusca} aoEnviar={() => Keyboard.dismiss()} icone="search" autoFocus maxLength={60} />
                     {!!busca.trim() && (
                       <View style={styles.resultadoBusca}>
                         {itensVisiveis.length > 0 ? (
@@ -1324,7 +1343,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   </ScrollView>
                 )}
 
-                </View>
+                </Pressable>
                   </Animated.View>
                 </View>
               </Aparecer>
@@ -1409,6 +1428,11 @@ const styles = StyleSheet.create({
   trilhoWrap: { height: 52, paddingHorizontal: 20, justifyContent: 'center' },
   trilho: { height: 12, borderRadius: 6, backgroundColor: COR.borda },
   trilhoFill: { height: 12, borderRadius: 6 },
+  trilhoWrapMini: { height: 32, paddingHorizontal: 12, flex: 1 },
+  trilhoMini: { height: 8, borderRadius: 4 },
+  carrinhoMini: { width: 26, height: 26, borderRadius: 13, borderWidth: 2, right: -13, top: -9 },
+  progressoBoxMini: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4, paddingHorizontal: 12 },
+  progressoMiniTexto: { color: COR.texto, fontSize: 11, fontWeight: 'bold', minWidth: 34 },
   riscos: { position: 'absolute', right: 22, top: 0, bottom: 0, justifyContent: 'center', gap: 3 },
   risco: { height: 2.5, borderRadius: 2, backgroundColor: '#0B0B0F88' },
   carrinho: {
