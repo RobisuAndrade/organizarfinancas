@@ -689,6 +689,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   const [nomeEditado, setNomeEditado] = useState('');
 
   const [addAberto, setAddAberto] = useState(false);
+  const [buscaAberta, setBuscaAberta] = useState(false);
+  const [busca, setBusca] = useState('');
   const [nomeItem, setNomeItem] = useState('');
   const [qtdItem, setQtdItem] = useState(1);
   const [catEscolhida, setCatEscolhida] = useState<string | null>(null);
@@ -781,7 +783,13 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   }, [itensComCat]);
 
   const filtroAtivo = filtro !== 'Todas' && contagemCat[filtro] ? filtro : 'Todas';
-  const itensVisiveis = filtroAtivo === 'Todas' ? itensComCat : itensComCat.filter((it) => it.categoria === filtroAtivo);
+  // Busca por nome (ignora o filtro de categoria enquanto você procura)
+  const termoBusca = buscaAberta ? normalizar(busca) : '';
+  const itensVisiveis = termoBusca
+    ? itensComCat.filter((it) => normalizar(it.nome).includes(termoBusca))
+    : filtroAtivo === 'Todas'
+    ? itensComCat
+    : itensComCat.filter((it) => it.categoria === filtroAtivo);
   const totalItens = itensComCat.length;
   const totalFeitos = itensComCat.filter((i) => i.comprado).length;
 
@@ -807,6 +815,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
     setFiltro('Todas');
     setAddAberto(false);
     setRenomeando(false);
+    setBuscaAberta(false);
+    setBusca('');
     setNomeItem('');
     setQtdItem(1);
     setCatEscolhida(null);
@@ -819,6 +829,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
     setNomeItem(it.nome);
     setQtdItem(Math.max(1, Math.min(QTD_MAXIMA, parseInt(it.qtd, 10) || 1)));
     setCatEscolhida(it.categoria);
+    setBuscaAberta(false);
+    setBusca('');
     setAddAberto(true);
   };
 
@@ -920,6 +932,24 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
     else if (criando) setCriando(false);
     else if (listaAtual) abrirLista(null);
     else fecharTudo();
+  };
+
+  const abrirAbaAdicionar = () => {
+    suavizarLayout();
+    setBuscaAberta(false);
+    setBusca('');
+    setAddAberto((v) => !v);
+  };
+
+  const abrirAbaBusca = () => {
+    suavizarLayout();
+    setAddAberto(false);
+    if (buscaAberta) {
+      setBuscaAberta(false);
+      setBusca('');
+    } else {
+      setBuscaAberta(true);
+    }
   };
 
   const alternarAdd = () => {
@@ -1085,6 +1115,28 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
                 {totalItens > 0 && <BarraCarrinho feitos={totalFeitos} total={totalItens} />}
 
+                {/* ABAS: ADICIONAR / BUSCAR */}
+                {totalItens > 0 && !editandoId && (
+                  <View style={styles.abasTopo}>
+                    <TouchableOpacity
+                      style={[styles.aba, { borderColor: `${COR.lima}66` }, addAberto && { backgroundColor: COR.lima, borderColor: COR.lima, borderStyle: 'solid' }]}
+                      onPress={abrirAbaAdicionar}
+                      activeOpacity={0.85}
+                    >
+                      <Feather name="plus" size={15} color={addAberto ? COR.grafite : COR.lima} />
+                      <Text style={[styles.abaTexto, { color: addAberto ? COR.grafite : COR.lima }]}>Adicionar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.aba, { borderColor: `${COR.lavanda}66` }, buscaAberta && { backgroundColor: COR.lavanda, borderColor: COR.lavanda, borderStyle: 'solid' }]}
+                      onPress={abrirAbaBusca}
+                      activeOpacity={0.85}
+                    >
+                      <Feather name="search" size={15} color={buscaAberta ? COR.grafite : COR.lavanda} />
+                      <Text style={[styles.abaTexto, { color: buscaAberta ? COR.grafite : COR.lavanda }]}>Buscar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 {/* ADICIONAR ITEM */}
                 {addVisivel ? (
                   <View style={styles.cardAdicionar}>
@@ -1097,12 +1149,6 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                         </TouchableOpacity>
                       </View>
                     )}
-                    {totalItens > 0 && !editandoId && (
-                      <TouchableOpacity style={styles.recolher} onPress={alternarAdd} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                        <Feather name="chevron-up" size={16} color={COR.cinza} />
-                      </TouchableOpacity>
-                    )}
-
                     <CampoSuave rotulo="Produto (ex: Arroz 5kg)" valor={nomeItem} aoMudar={setNomeItem} aoEnviar={adicionarItem} icone="shopping-bag" maxLength={60} />
 
                     <View style={styles.catCabeca}>
@@ -1147,11 +1193,43 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                       </TouchableOpacity>
                     </View>
                   </View>
-                ) : (
-                  <TouchableOpacity style={styles.btnAbrirAdd} onPress={alternarAdd} activeOpacity={0.8}>
-                    <Feather name="plus" size={16} color={COR.lima} style={{ marginRight: 6 }} />
-                    <Text style={styles.btnAbrirAddTexto}>Adicionar item</Text>
-                  </TouchableOpacity>
+                ) : null}
+
+                {/* BUSCAR NA LISTA */}
+                {buscaAberta && totalItens > 0 && (
+                  <View style={styles.cardBusca}>
+                    <CampoSuave rotulo="Buscar na lista (ex: arroz)" valor={busca} aoMudar={setBusca} icone="search" autoFocus maxLength={60} />
+                    {!!busca.trim() && (
+                      <View style={styles.resultadoBusca}>
+                        {itensVisiveis.length > 0 ? (
+                          <>
+                            <Feather name="check-circle" size={15} color={COR.verde} />
+                            <Text style={[styles.resultadoTexto, { color: COR.verde }]}>
+                              Está na lista • {itensVisiveis.length} {itensVisiveis.length === 1 ? 'resultado' : 'resultados'}
+                            </Text>
+                          </>
+                        ) : (
+                          <>
+                            <Feather name="x-circle" size={15} color={COR.vermelho} />
+                            <Text style={[styles.resultadoTexto, { color: COR.vermelho }]}>Não está na lista</Text>
+                            <TouchableOpacity
+                              style={styles.btnAddDaBusca}
+                              onPress={() => {
+                                suavizarLayout();
+                                setNomeItem(busca.trim());
+                                setBuscaAberta(false);
+                                setBusca('');
+                                setAddAberto(true);
+                              }}
+                            >
+                              <Feather name="plus" size={13} color={COR.grafite} />
+                              <Text style={styles.btnAddDaBuscaTexto}>Adicionar</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
+                      </View>
+                    )}
+                  </View>
                 )}
 
                 {addVisivel && !!dicaPreco && (
@@ -1164,7 +1242,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                 )}
 
                 {/* FILTRO POR CATEGORIA */}
-                {totalItens > 0 && Object.keys(contagemCat).length > 1 && (
+                {totalItens > 0 && !termoBusca && Object.keys(contagemCat).length > 1 && (
                   <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -1206,7 +1284,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                     <View style={styles.vazio}>
                       <Feather name="shopping-bag" size={36} color={COR.borda} />
                       <Text style={styles.vazioTexto}>
-                        {totalItens === 0 ? 'Adicione os produtos que precisam comprar.' : 'Nenhum item nessa categoria.'}
+                        {totalItens === 0 ? 'Adicione os produtos que precisam comprar.' : termoBusca ? 'Nada encontrado com esse nome.' : 'Nenhum item nessa categoria.'}
                       </Text>
                     </View>
                   ) : (
@@ -1323,6 +1401,14 @@ const styles = StyleSheet.create({
 
   // adicionar item
   cardAdicionar: { backgroundColor: COR.grafite, borderRadius: 20, borderWidth: 1, borderColor: COR.borda, padding: 14, marginBottom: 10 },
+  abasTopo: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  aba: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
+  abaTexto: { fontSize: 13, fontWeight: 'bold' },
+  cardBusca: { backgroundColor: COR.grafite, borderRadius: 20, borderWidth: 1, borderColor: COR.borda, padding: 14, marginBottom: 10 },
+  resultadoBusca: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingHorizontal: 2 },
+  resultadoTexto: { flex: 1, fontSize: 12, fontWeight: 'bold' },
+  btnAddDaBusca: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: COR.lima, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 12 },
+  btnAddDaBuscaTexto: { color: COR.grafite, fontSize: 12, fontWeight: 'bold' },
   recolher: { alignSelf: 'center', marginTop: -6, marginBottom: 4 },
   catCabeca: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 8 },
   rotuloPeq: { color: COR.cinza, fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: 1 },
