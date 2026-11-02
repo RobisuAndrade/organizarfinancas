@@ -22,6 +22,9 @@ import {
 } from 'react-native';
 import { db } from '../firebaseConfig';
 import AvoidTeclado from './AvoidTeclado';
+import { Acompanhamento, ItemComparavel, lerAcompanhamento, PainelComparativo, PainelPreco, ResumoPreco } from './AcompanharPrecos';
+import CampoSuave from './CampoSuave';
+import { COR } from './corLista';
 import { DialogoNoModal, useDialogo } from '../hooks/useDialogo';
 import { CATEGORIAS_MERCADO, categorizarProduto, chaveProduto, infoCategoria, normalizar } from '../utils/categoriasMercado';
 import { formatarMoeda } from '../utils/formatadores';
@@ -32,6 +35,7 @@ type ItemLista = {
   qtd: string;
   comprado: boolean;
   categoria?: string;
+  acomp?: Acompanhamento | null;
 };
 
 type Lista = {
@@ -48,17 +52,6 @@ type HistoricoPreco = {
   mercado: string;
 };
 
-const COR = {
-  lima: '#D4FF3A',
-  lavanda: '#B8A6FF',
-  grafite: '#0B0B0F',
-  card: '#1C1D25',
-  borda: '#2A2B34',
-  texto: '#F4F5F7',
-  cinza: '#8A8D98',
-  verde: '#00E676',
-  vermelho: '#FF3B5C',
-};
 
 const QTD_MAXIMA = 99;
 const DIAS_SEMANA = ['domingo', 'segunda-feira', 'terça-feira', 'quarta-feira', 'quinta-feira', 'sexta-feira', 'sábado'];
@@ -95,94 +88,6 @@ function Aparecer({ children, atraso = 0, cheio = false }: { children: ReactNode
     <Animated.View style={{ opacity: v, flexShrink: 1, ...(cheio ? { flex: 1 } : null), transform: [{ translateY: v.interpolate({ inputRange: [0, 1], outputRange: [14, 0] }) }] }}>
       {children}
     </Animated.View>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────
-// SMOOTH INPUT: rótulo que sobe, borda que acende e brilho suave
-// ─────────────────────────────────────────────────────────────
-function CampoSuave({
-  rotulo,
-  valor,
-  aoMudar,
-  aoEnviar,
-  autoFocus,
-  icone,
-  maxLength,
-}: {
-  rotulo: string;
-  valor: string;
-  aoMudar: (t: string) => void;
-  aoEnviar?: () => void;
-  autoFocus?: boolean;
-  icone?: ComponentProps<typeof Feather>['name'];
-  maxLength?: number;
-}) {
-  const [focado, setFocado] = useState(false);
-  const flutuando = focado || valor.length > 0;
-  const foco = useRef(new Animated.Value(0)).current;
-  const flut = useRef(new Animated.Value(flutuando ? 1 : 0)).current;
-
-  useEffect(() => {
-    Animated.timing(foco, { toValue: focado ? 1 : 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  }, [focado]);
-  useEffect(() => {
-    Animated.timing(flut, { toValue: flutuando ? 1 : 0, duration: 200, easing: Easing.out(Easing.cubic), useNativeDriver: false }).start();
-  }, [flutuando]);
-
-  const recuo = icone ? 42 : 16;
-
-  return (
-    <View style={styles.campoBox}>
-      <Animated.View
-        style={[styles.campoBrilho, { opacity: foco.interpolate({ inputRange: [0, 1], outputRange: [0, 0.16] }) }]}
-      />
-      <Animated.View
-        style={[
-          styles.campoCaixa,
-          {
-            borderColor: foco.interpolate({ inputRange: [0, 1], outputRange: [COR.borda, COR.lima] }),
-            backgroundColor: foco.interpolate({ inputRange: [0, 1], outputRange: [COR.grafite, '#101109'] }),
-          },
-        ]}
-      >
-        {!!icone && (
-          <Feather name={icone} size={16} color={focado ? COR.lima : COR.cinza} style={{ position: 'absolute', left: 15, top: 20 }} />
-        )}
-        <Animated.Text
-          style={[
-            styles.campoRotulo,
-            {
-              left: recuo,
-              top: flut.interpolate({ inputRange: [0, 1], outputRange: [18, 7] }),
-              fontSize: flut.interpolate({ inputRange: [0, 1], outputRange: [14, 10] }),
-              color: foco.interpolate({ inputRange: [0, 1], outputRange: [COR.cinza, COR.lima] }),
-            },
-          ]}
-          numberOfLines={1}
-        >
-          {rotulo}
-        </Animated.Text>
-        <TextInput
-          style={[styles.campoInput, { paddingLeft: recuo, paddingRight: valor.length > 0 ? 40 : 16 }, Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : null]}
-          value={valor}
-          onChangeText={aoMudar}
-          onFocus={() => setFocado(true)}
-          onBlur={() => setFocado(false)}
-          onSubmitEditing={aoEnviar}
-          submitBehavior="submit"
-          returnKeyType="done"
-          autoFocus={autoFocus}
-          maxLength={maxLength}
-          selectionColor={COR.lima}
-        />
-        {valor.length > 0 && (
-          <TouchableOpacity style={styles.campoLimpar} onPress={() => aoMudar('')} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-            <Feather name="x" size={14} color={COR.cinza} />
-          </TouchableOpacity>
-        )}
-      </Animated.View>
-    </View>
   );
 }
 
@@ -449,6 +354,7 @@ function ItemLinha({
   aoMarcar,
   aoExcluir,
   aoEditar,
+  aoAcompanhar,
 }: {
   item: ItemLista;
   categoria: string;
@@ -456,6 +362,7 @@ function ItemLinha({
   aoMarcar: () => void;
   aoExcluir: () => void;
   aoEditar: () => void;
+  aoAcompanhar: () => void;
 }) {
   const cat = infoCategoria(categoria);
   const marc = useRef(new Animated.Value(item.comprado ? 1 : 0)).current;
@@ -530,6 +437,7 @@ function ItemLinha({
             Menor preço: {formatarMoeda(preco.menorPreco)} ({preco.mercado})
           </Text>
         )}
+        {!!item.acomp && <ResumoPreco acomp={item.acomp} aoAbrir={aoAcompanhar} />}
       </View>
 
       <View style={styles.acoesItem}>
@@ -538,6 +446,9 @@ function ItemLinha({
         </TouchableOpacity>
         <TouchableOpacity onPress={aoEditar} style={styles.btnLixo}>
           <Feather name="edit-2" size={16} color={COR.lima} />
+        </TouchableOpacity>
+        <TouchableOpacity onPress={aoAcompanhar} style={styles.btnLixo}>
+          <Feather name="trending-down" size={16} color={item.acomp ? COR.lavanda : COR.cinza} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -721,6 +632,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   const [filtro, setFiltro] = useState('Todas');
   const [celebrando, setCelebrando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
+  const [precoItemId, setPrecoItemId] = useState<string | null>(null);
+  const [comparando, setComparando] = useState(false);
   const [alturaTeclado, setAlturaTeclado] = useState(0);
 
   useEffect(() => {
@@ -784,11 +697,22 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
           qtd: itensObj[itemId]?.qtd || '1',
           comprado: !!itensObj[itemId]?.comprado,
           categoria: itensObj[itemId]?.categoria || '',
+          acomp: lerAcompanhamento(itensObj[itemId]?.acompanhamento),
         }));
         return { id, nome: l?.nome || 'Lista de Compras', criadoEm: l?.criadoEm || '', itens };
       })
       .sort((a, b) => (b.criadoEm || '').localeCompare(a.criadoEm || ''));
   }, [listas]);
+
+  const acompanhados: ItemComparavel[] = useMemo(() => {
+    const out: ItemComparavel[] = [];
+    for (const l of listasArray) {
+      for (const it of l.itens) {
+        if (it.acomp) out.push({ id: `${l.id}/${it.id}`, nome: it.nome, listaNome: l.nome, acomp: it.acomp });
+      }
+    }
+    return out;
+  }, [listasArray]);
 
   const listaAtual = listaAtualId ? listasArray.find((l) => l.id === listaAtualId) || null : null;
 
@@ -946,6 +870,8 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   };
 
   const fecharTudo = () => {
+    setPrecoItemId(null);
+    setComparando(false);
     setCriando(false);
     setCelebrando(false);
     abrirLista(null);
@@ -954,7 +880,9 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 
   // Botão "voltar" do Android: desfaz um passo de cada vez
   const voltarOuFechar = () => {
-    if (celebrando) setCelebrando(false);
+    if (precoItemId) setPrecoItemId(null);
+    else if (comparando) setComparando(false);
+    else if (celebrando) setCelebrando(false);
     else if (criando) setCriando(false);
     else if (listaAtual) abrirLista(null);
     else fecharTudo();
@@ -1054,6 +982,13 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                   <Text style={styles.btnPrimarioTexto}>Nova lista</Text>
                 </TouchableOpacity>
 
+                {acompanhados.length > 1 && (
+                  <TouchableOpacity style={styles.btnComparar} onPress={() => setComparando(true)} activeOpacity={0.85}>
+                    <Feather name="columns" size={16} color={COR.verde} style={{ marginRight: 8 }} />
+                    <Text style={styles.btnCompararTexto}>Comparar preços ({acompanhados.length})</Text>
+                  </TouchableOpacity>
+                )}
+
                 <ScrollView style={{ flexShrink: 1, marginTop: 14, maxHeight: alturaItens + 60 }} showsVerticalScrollIndicator={false}>
                   {listasArray.length === 0 ? (
                     <View style={styles.vazio}>
@@ -1127,6 +1062,10 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                         aoMarcar={() => alternarComprado(it.id, it.comprado)}
                         aoExcluir={() => excluirItem(it.id)}
                         aoEditar={() => iniciarEdicao(it)}
+                        aoAcompanhar={() => {
+                          Keyboard.dismiss();
+                          setPrecoItemId(it.id);
+                        }}
                       />
                     ))
                   )}
@@ -1205,6 +1144,19 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                       <Feather name="search" size={15} color={buscaAberta ? COR.grafite : COR.lavanda} />
                       <Text style={[styles.abaTexto, { color: buscaAberta ? COR.grafite : COR.lavanda }]}>Buscar</Text>
                     </TouchableOpacity>
+                    {acompanhados.length > 1 && (
+                      <TouchableOpacity
+                        style={[styles.aba, { borderColor: `${COR.verde}66` }]}
+                        onPress={() => {
+                          Keyboard.dismiss();
+                          setComparando(true);
+                        }}
+                        activeOpacity={0.85}
+                      >
+                        <Feather name="columns" size={15} color={COR.verde} />
+                        <Text style={[styles.abaTexto, { color: COR.verde }]}>Comparar</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 )}
 
@@ -1352,6 +1304,17 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
             )}
           </Animated.View>
 
+          {!!precoItemId && !!listaAtual && listaAtual.itens.some((i) => i.id === precoItemId) && (
+            <PainelPreco
+              key={precoItemId}
+              caminhoItem={`listasCompras/${listaAtual.id}/itens/${precoItemId}`}
+              nomeItem={listaAtual.itens.find((i) => i.id === precoItemId)?.nome || ''}
+              acomp={listaAtual.itens.find((i) => i.id === precoItemId)?.acomp || null}
+              aoFechar={() => setPrecoItemId(null)}
+            />
+          )}
+          {comparando && acompanhados.length > 1 && <PainelComparativo itens={acompanhados} aoFechar={() => setComparando(false)} />}
+
           {celebrando && <Celebracao total={totalItens} aoTerminar={() => setCelebrando(false)} />}
         </View>
       </AvoidTeclado>
@@ -1400,13 +1363,6 @@ const styles = StyleSheet.create({
   dataLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 12, paddingHorizontal: 4 },
   dataTexto: { color: COR.cinza, fontSize: 13, fontWeight: '600' },
 
-  // campo suave
-  campoBox: { position: 'relative' },
-  campoBrilho: { position: 'absolute', top: -3, left: -3, right: -3, bottom: -3, borderRadius: 19, backgroundColor: COR.lima },
-  campoCaixa: { height: 56, borderRadius: 16, borderWidth: 1.5, justifyContent: 'center' },
-  campoRotulo: { position: 'absolute', fontWeight: '600' },
-  campoInput: { height: 56, paddingTop: 22, paddingBottom: 6, color: COR.texto, fontSize: 15, fontWeight: '600' },
-  campoLimpar: { position: 'absolute', right: 12, top: 18, width: 20, height: 20, borderRadius: 10, backgroundColor: COR.borda, justifyContent: 'center', alignItems: 'center' },
 
   vazio: { alignItems: 'center', paddingVertical: 30 },
   vazioTexto: { color: COR.cinza, fontSize: 13, marginTop: 12, textAlign: 'center', lineHeight: 20 },
@@ -1415,6 +1371,8 @@ const styles = StyleSheet.create({
   cardListaNome: { color: COR.texto, fontSize: 14, fontWeight: 'bold' },
   cardListaInfo: { color: COR.cinza, fontSize: 11, marginTop: 3 },
   btnLixo: { padding: 6 },
+  btnComparar: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 10, paddingVertical: 12, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed', borderColor: `${COR.verde}66` },
+  btnCompararTexto: { color: COR.verde, fontSize: 13, fontWeight: 'bold' },
   acoesItem: { alignItems: 'center', gap: 2 },
   editandoTopo: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
   editandoTexto: { flex: 1, color: COR.lima, fontSize: 12, fontWeight: 'bold' },

@@ -7,6 +7,7 @@ import { Animated, Dimensions, Linking, Modal, Platform, SafeAreaView, ScrollVie
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import BotaoPadrao from '../../components/BotaoPadrao';
 import { db } from '../../firebaseConfig';
+import AbaPrecos, { SegmentoAbas } from '../../components/AbaPrecos';
 import AvoidTeclado, { ScrollTeclado } from '../../components/AvoidTeclado';
 
 // ----------------------------------------------------
@@ -51,6 +52,7 @@ export default function Compras() {
   const router = useRouter();
   const params = useLocalSearchParams();
 
+  const [aba, setAba] = useState<'compras' | 'precos'>('compras');
   const [lista, setLista] = useState<any[]>([]); 
   const [formAberto, setFormAberto] = useState(false);
   const [modalFiltroAberto, setModalFiltroAberto] = useState(false);
@@ -380,7 +382,7 @@ export default function Compras() {
       <View style={styles.mainWrapper}>
         
         {/* ÁREA DE ROLAGEM COM ANIMATED FLATLIST */}
-        <Animated.View style={[styles.listArea, { opacity: fadeAnim, transform: [{ translateY: slideAnimUp }] }]}>
+        <Animated.View style={[styles.listArea, aba !== 'compras' && { display: 'none' }, { opacity: fadeAnim, transform: [{ translateY: slideAnimUp }] }]}>
           <Animated.FlatList 
             data={listaFiltrada}
             keyExtractor={(item) => item.id}
@@ -394,6 +396,7 @@ export default function Compras() {
             
             ListHeaderComponent={
               <View style={{ paddingBottom: 10 }}>
+                <SegmentoAbas aba={aba} aoMudar={setAba} />
                 {/* BARRA DE PESQUISA */}
                 <View style={styles.searchRow}>
                   <View style={styles.searchContainer}>
@@ -553,13 +556,15 @@ export default function Compras() {
             </TouchableOpacity>
             <View>
               <Text style={styles.titulo}>Para a Nossa Casa</Text>
-              <Text style={styles.subtitulo}>{listaFiltrada.length} itens encontrados</Text>
+              <Text style={styles.subtitulo}>{aba === 'compras' ? `${listaFiltrada.length} itens encontrados` : 'Acompanhando preços'}</Text>
             </View>
           </View>
         </Animated.View>
 
         {/* RODAPÉ DE TOTAIS FLUTUANTE */}
-        <Animated.View style={[styles.rodapeFlutuante, { transform: [{ translateY: footerTranslateY }] }]}>
+        {aba === 'precos' && <AbaPrecos segmento={<SegmentoAbas aba={aba} aoMudar={setAba} />} />}
+
+        <Animated.View style={[styles.rodapeFlutuante, aba !== 'compras' && { display: 'none' }, { transform: [{ translateY: footerTranslateY }] }]}>
           <View style={styles.subtotalContainer}>
             <View style={styles.subtotalColumn}>
               <Text style={styles.subtotalLabel}>Total Estimado</Text>
