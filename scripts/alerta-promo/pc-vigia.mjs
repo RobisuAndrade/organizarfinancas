@@ -36,7 +36,7 @@ if (!CHAT_ID) faltando.push('TELEGRAM_CHAT_ID');
 if (!ARQUIVO_CHAVE) faltando.push('FIREBASE_SERVICE_ACCOUNT_FILE');
 if (faltando.length > 0) {
   console.error(`Falta preencher no arquivo .env: ${faltando.join(', ')}.`);
-  console.error('Copie ".env.exemplo" para ".env" e preencha.');
+  console.error('Copie "config-exemplo.txt" para ".env" e preencha.');
   process.exit(2);
 }
 if (!fs.existsSync(ARQUIVO_CHAVE)) {
