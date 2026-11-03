@@ -2,7 +2,7 @@
 // Só trabalha quando, no app (ALERTA > Quem vigia), estiver marcado "Meu PC".
 // Com o PC desligado, dormindo ou esta janela fechada, o GitHub assume sozinho depois de ~3 minutos.
 //
-// Configuração: copie ".env.exemplo" para ".env" (nesta mesma pasta) e preencha. O ".env" não vai para o GitHub.
+// Configuração: copie "config-exemplo.txt" para um arquivo novo chamado ".env" (nesta mesma pasta) e preencha. O ".env" não vai para o GitHub.
 // Para iniciar: dê dois cliques em "iniciar-vigia-pc.bat".
 import fs from 'node:fs';
 import path from 'node:path';
