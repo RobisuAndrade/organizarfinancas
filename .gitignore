@@ -41,3 +41,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# vigia de promocoes: segredos locais
+scripts/alerta-promo/.env
+scripts/alerta-promo/node_modules/
+*firebase-adminsdk*.json
+chave-firebase*.json

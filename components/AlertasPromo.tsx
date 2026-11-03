@@ -7,7 +7,9 @@
 // Dados no Firebase:
 //   alertasPromo/palavras/{id}: termo, ativo, duracao ('24h'|'7d'|'14d'|'sempre'), criadoEm, expiraEm (0 = sem prazo), avisos
 //   alertasPromo/canais/{id}:   usuario (nome do canal em t.me/usuario), ativo
-//   alertasPromo/estado:        ultimaVerificacao, pedirTeste, testeAtendido, lidos/{canal} (escritos pelo script)
+//   alertasPromo/config:        executor ('github' | 'pc'): quem vigia (escolhido aqui)
+//   alertasPromo/historico/{t}: quando, origem, canais, palavras, avisos, ok (uma linha por execução do vigia)
+//   alertasPromo/estado:        ultimaVerificacao, ultimaOrigem, pcBatimento, pedirTeste, testeAtendido, lidos/{canal} (escritos pelo script)
 import { Feather } from '@expo/vector-icons';
 import { onValue, push, ref, remove, update } from 'firebase/database';
 import { useEffect, useRef, useState } from 'react';
@@ -30,6 +32,8 @@ const DURACOES: { chave: Duracao; rotulo: string; ms: number }[] = [
 
 type Palavra = { id: string; termo: string; ativo: boolean; duracao: Duracao; criadoEm: number; expiraEm: number; avisos: number };
 type Canal = { id: string; usuario: string; ativo: boolean };
+type Execucao = { quando: number; origem: 'github' | 'pc'; avisos: number; ok: boolean };
+type Executor = 'github' | 'pc';
 
 const ehDuracao = (d: any): d is Duracao => d === '24h' || d === '7d' || d === '14d' || d === 'sempre';
 
@@ -45,6 +49,14 @@ const doisDigitos = (n: number) => (n > 9 ? `${n}` : `0${n}`);
 function dataHora(ms: number) {
   const d = new Date(ms);
   return `${doisDigitos(d.getDate())}/${doisDigitos(d.getMonth() + 1)} ${doisDigitos(d.getHours())}:${doisDigitos(d.getMinutes())}`;
+}
+
+function horaCompleta(ms: number) {
+  const d = new Date(ms);
+  const hora = `${doisDigitos(d.getHours())}:${doisDigitos(d.getMinutes())}:${doisDigitos(d.getSeconds())}`;
+  const hoje = new Date();
+  const mesmoDia = d.getDate() === hoje.getDate() && d.getMonth() === hoje.getMonth() && d.getFullYear() === hoje.getFullYear();
+  return mesmoDia ? hora : `${doisDigitos(d.getDate())}/${doisDigitos(d.getMonth() + 1)} ${hora}`;
 }
 
 function tempoRestante(ms: number) {
@@ -69,6 +81,10 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
   const [testePedido, setTestePedido] = useState(0);
   const [testeAtendido, setTesteAtendido] = useState(0);
   const [agora, setAgora] = useState(Date.now());
+  const [executor, setExecutor] = useState<Executor>('github');
+  const [pcBatimento, setPcBatimento] = useState(0);
+  const [historico, setHistorico] = useState<Execucao[]>([]);
+  const [verMais, setVerMais] = useState(false);
 
   const [termo, setTermo] = useState('');
   const [duracao, setDuracao] = useState<Duracao>('7d');
@@ -119,6 +135,16 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
       setUltimaVerificacao(Number(est.ultimaVerificacao) || 0);
       setTestePedido(Number(est.pedirTeste) || 0);
       setTesteAtendido(Number(est.testeAtendido) || 0);
+      setPcBatimento(Number(est.pcBatimento) || 0);
+      setExecutor(v.config && v.config.executor === 'pc' ? 'pc' : 'github');
+
+      const listaH: Execucao[] = [];
+      for (const h of Object.values<any>(v.historico || {})) {
+        if (!h || !Number(h.quando)) continue;
+        listaH.push({ quando: Number(h.quando), origem: h.origem === 'pc' ? 'pc' : 'github', avisos: Number(h.avisos) || 0, ok: h.ok !== false });
+      }
+      listaH.sort((a, b) => b.quando - a.quando);
+      setHistorico(listaH.slice(0, 30));
     });
     return () => unsub();
   }, []);
@@ -221,6 +247,15 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
     }
   };
 
+  const mudarExecutor = async (novo: Executor) => {
+    if (novo === executor) return;
+    try {
+      await update(ref(db, 'alertasPromo/config'), { executor: novo });
+    } catch {
+      avisar('Não foi possível trocar', 'Verifique a internet e tente de novo.', 'erro');
+    }
+  };
+
   const pedirTeste = async () => {
     try {
       await update(ref(db, 'alertasPromo/estado'), { pedirTeste: Date.now() });
@@ -232,7 +267,7 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
 
   // situação do vigia
   const idadeMin = ultimaVerificacao > 0 ? Math.floor((agora - ultimaVerificacao) / 60000) : -1;
-  const vigiaParado = idadeMin > 45;
+  const vigiaParado = idadeMin > 20;
   const textoVigia =
     ultimaVerificacao === 0
       ? 'O vigia ainda não rodou'
@@ -242,6 +277,21 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
   const testeEsperando = testePedido > testeAtendido;
 
   const ativas = palavras.filter((p) => situacao(p, agora) === 'ativa').length;
+
+  // PC com sinal nos últimos 3 minutos = conectado
+  const pcOnline = pcBatimento > 0 && agora - pcBatimento > 0 && 3 * 60000 > agora - pcBatimento;
+  const textoPc = pcOnline
+    ? `PC conectado (sinal há ${tempoRestante(Math.max(60000, agora - pcBatimento))})`
+    : pcBatimento > 0
+      ? 'PC sem sinal. O GitHub assume sozinho.'
+      : 'O vigia do PC nunca foi aberto.';
+
+  // histórico: mais recente primeiro, com aviso quando houve uma pausa grande entre duas execuções
+  const linhasHist = historico.slice(0, verMais ? 30 : 5).map((h, i) => {
+    const anterior = historico[i + 1];
+    const pausa = anterior ? h.quando - anterior.quando : 0;
+    return { h, pausa: pausa > 20 * 60000 ? pausa : 0 };
+  });
 
   const corSituacao = (s: Situacao) => (s === 'ativa' ? COR.verde : s === 'pausada' ? COR.cinza : COR.vermelho);
 
@@ -281,6 +331,55 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
               <Text style={styles.btnTesteTexto}>{testeEsperando ? 'Aguardando…' : 'Enviar teste'}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* quem vigia */}
+          <Text style={styles.secao}>Quem vigia</Text>
+          <View style={styles.seg}>
+            {([
+              { chave: 'github' as Executor, rotulo: 'GitHub', icone: 'cloud' as const },
+              { chave: 'pc' as Executor, rotulo: 'Meu PC', icone: 'monitor' as const },
+            ]).map((op) => {
+              const ativo = executor === op.chave;
+              return (
+                <TouchableOpacity
+                  key={op.chave}
+                  onPress={() => mudarExecutor(op.chave)}
+                  activeOpacity={0.85}
+                  style={[styles.segBtn, ativo && { backgroundColor: COR.lavanda }]}
+                >
+                  <Feather name={op.icone} size={14} color={ativo ? COR.grafite : COR.cinza} />
+                  <Text style={[styles.segTexto, ativo && { color: COR.grafite }]}>{op.rotulo}</Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <Text style={styles.dica}>
+            {executor === 'pc'
+              ? `${textoPc}. Confere a cada 1 minuto enquanto o vigia do PC estiver aberto.`
+              : `Confere a cada ~5 minutos (o GitHub às vezes atrasa). ${pcOnline ? 'O PC está conectado: escolha "Meu PC" para conferir a cada 1 minuto.' : ''}`}
+          </Text>
+
+          {/* últimas execuções */}
+          <Text style={[styles.secao, { marginTop: 16 }]}>Últimas execuções</Text>
+          {linhasHist.length === 0 && <Text style={styles.vazio}>Ainda nenhuma execução registrada.</Text>}
+          {linhasHist.map(({ h, pausa }) => (
+            <View key={h.quando}>
+              <View style={styles.linhaHist}>
+                <View style={[styles.bolinha, { backgroundColor: h.ok ? COR.verde : COR.vermelho }]} />
+                <Text style={styles.histHora}>{horaCompleta(h.quando)}</Text>
+                <Text style={styles.histOrigem}>{h.origem === 'pc' ? 'Meu PC' : 'GitHub'}</Text>
+                <Text style={[styles.histAvisos, h.avisos > 0 && { color: COR.lima }]}>
+                  {h.ok ? (h.avisos > 0 ? `${h.avisos} ${h.avisos > 1 ? 'avisos' : 'aviso'}` : 'sem avisos') : 'falha'}
+                </Text>
+              </View>
+              {pausa > 0 && <Text style={styles.histPausa}>⚠ ficou {tempoRestante(pausa)} sem rodar antes desta</Text>}
+            </View>
+          ))}
+          {historico.length > 5 && (
+            <TouchableOpacity onPress={() => setVerMais(!verMais)} style={{ paddingVertical: 8 }}>
+              <Text style={styles.verMais}>{verMais ? 'Mostrar menos' : 'Ver mais'}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* nova palavra */}
           <Text style={styles.secao}>Vigiar uma palavra</Text>
@@ -431,6 +530,16 @@ const styles = StyleSheet.create({
   btnPrimarioTexto: { color: COR.grafite, fontSize: 15, fontWeight: 'bold' },
   btnSecundario: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 13, borderRadius: 16, borderWidth: 1, borderColor: `${COR.lavanda}66`, marginTop: 10 },
   btnSecundarioTexto: { color: COR.lavanda, fontSize: 13, fontWeight: 'bold' },
+
+  seg: { flexDirection: 'row', backgroundColor: COR.grafite, borderRadius: 14, padding: 4, borderWidth: 1, borderColor: COR.borda },
+  segBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+  segTexto: { color: COR.cinza, fontSize: 12, fontWeight: 'bold' },
+  linhaHist: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COR.grafite, borderRadius: 12, borderWidth: 1, borderColor: COR.borda, paddingVertical: 9, paddingHorizontal: 12, marginBottom: 6 },
+  histHora: { color: COR.texto, fontSize: 12, fontWeight: 'bold', flex: 1 },
+  histOrigem: { color: COR.lavanda, fontSize: 11, fontWeight: 'bold' },
+  histAvisos: { color: COR.cinza, fontSize: 11, minWidth: 58, textAlign: 'right' },
+  histPausa: { color: COR.vermelho, fontSize: 11, marginBottom: 6, marginLeft: 4 },
+  verMais: { color: COR.lavanda, fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
 
   vazio: { color: COR.cinza, fontSize: 12 },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COR.grafite, borderRadius: 16, borderWidth: 1, borderColor: COR.borda, padding: 12, marginBottom: 8 },
