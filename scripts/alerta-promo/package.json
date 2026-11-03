@@ -1,0 +1,10 @@
+{
+  "name": "alerta-promo",
+  "private": true,
+  "type": "module",
+  "version": "1.0.0",
+  "description": "Vigia canais públicos do Telegram e avisa no grupo quando aparece uma palavra cadastrada no app.",
+  "dependencies": {
+    "firebase-admin": "^13.0.0"
+  }
+}
