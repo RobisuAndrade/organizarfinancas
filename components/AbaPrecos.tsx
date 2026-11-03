@@ -17,6 +17,7 @@ import {
   PainelPreco,
   variacaoPreco,
 } from './AcompanharPrecos';
+import { PainelAlertas } from './AlertasPromo';
 import AvoidTeclado from './AvoidTeclado';
 import { COR } from './corLista';
 
@@ -42,6 +43,7 @@ export default function AbaPrecos({ segmento }: { segmento: ReactNode }) {
   const [dados, setDados] = useState<any>({});
   const [aberto, setAberto] = useState<string | null>(null); // id do produto, 'novo' ou null
   const [comparando, setComparando] = useState(false);
+  const [alertando, setAlertando] = useState(false);
 
   useEffect(() => {
     const unsub = onValue(ref(db, 'acompanharPrecos'), (snap) => setDados(snap.val() || {}));
@@ -89,6 +91,10 @@ export default function AbaPrecos({ segmento }: { segmento: ReactNode }) {
               <Text style={styles.btnCompararTexto}>Comparar</Text>
             </TouchableOpacity>
           )}
+          <TouchableOpacity style={styles.btnAlerta} onPress={() => setAlertando(true)} activeOpacity={0.85}>
+            <Feather name="bell" size={15} color={COR.vermelho} style={{ marginRight: 6 }} />
+            <Text style={styles.btnAlertaTexto}>ALERTA</Text>
+          </TouchableOpacity>
         </View>
 
         {produtos.length === 0 ? (
@@ -164,7 +170,7 @@ export default function AbaPrecos({ segmento }: { segmento: ReactNode }) {
         )}
       </ScrollView>
 
-      {(aberto === 'novo' || !!produtoAberto || comparando) && (
+      {(aberto === 'novo' || !!produtoAberto || comparando || alertando) && (
         <View style={[StyleSheet.absoluteFill, { zIndex: 50 }]}>
           <AvoidTeclado>
             <View style={{ flex: 1 }}>
@@ -192,6 +198,7 @@ export default function AbaPrecos({ segmento }: { segmento: ReactNode }) {
                 />
               )}
               {comparando && comparaveis.length > 1 && <PainelComparativo itens={comparaveis} aoFechar={() => setComparando(false)} />}
+              {alertando && <PainelAlertas aoFechar={() => setAlertando(false)} />}
             </View>
           </AvoidTeclado>
         </View>
@@ -213,6 +220,8 @@ const styles = StyleSheet.create({
   btnNovoTexto: { color: COR.grafite, fontSize: 14, fontWeight: 'bold' },
   btnComparar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: `${COR.verde}66`, backgroundColor: `${COR.verde}12` },
   btnCompararTexto: { color: COR.verde, fontSize: 13, fontWeight: 'bold' },
+  btnAlerta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16, borderRadius: 14, borderWidth: 1, borderColor: `${COR.vermelho}66`, backgroundColor: `${COR.vermelho}12` },
+  btnAlertaTexto: { color: COR.vermelho, fontSize: 13, fontWeight: 'bold' },
 
   vazio: { alignItems: 'center', paddingVertical: 50, paddingHorizontal: 20 },
   vazioTitulo: { color: COR.texto, fontSize: 15, fontWeight: 'bold', marginTop: 14 },

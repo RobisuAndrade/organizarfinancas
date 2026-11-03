@@ -23,7 +23,6 @@ import {
 import { db } from '../firebaseConfig';
 import AvoidTeclado from './AvoidTeclado';
 import { Acompanhamento, ItemComparavel, lerAcompanhamento, PainelComparativo, PainelPreco, ResumoPreco } from './AcompanharPrecos';
-import { PainelAlertas } from './AlertasPromo';
 import CampoSuave from './CampoSuave';
 import { COR } from './corLista';
 import { DialogoNoModal, useDialogo } from '../hooks/useDialogo';
@@ -635,7 +634,6 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [precoItemId, setPrecoItemId] = useState<string | null>(null);
   const [comparando, setComparando] = useState(false);
-  const [alertando, setAlertando] = useState(false);
   const [alturaTeclado, setAlturaTeclado] = useState(0);
 
   useEffect(() => {
@@ -876,7 +874,6 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
     setComparando(false);
     setCriando(false);
     setCelebrando(false);
-    setAlertando(false);
     abrirLista(null);
     fechar();
   };
@@ -884,7 +881,6 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
   // Botão "voltar" do Android: desfaz um passo de cada vez
   const voltarOuFechar = () => {
     if (precoItemId) setPrecoItemId(null);
-    else if (alertando) setAlertando(false);
     else if (comparando) setComparando(false);
     else if (celebrando) setCelebrando(false);
     else if (criando) setCriando(false);
@@ -1161,17 +1157,6 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
                         <Text style={[styles.abaTexto, { color: COR.verde }]}>Comparar</Text>
                       </TouchableOpacity>
                     )}
-                    <TouchableOpacity
-                      style={[styles.aba, { borderColor: `${COR.vermelho}66` }]}
-                      onPress={() => {
-                        Keyboard.dismiss();
-                        setAlertando(true);
-                      }}
-                      activeOpacity={0.85}
-                    >
-                      <Feather name="bell" size={15} color={COR.vermelho} />
-                      <Text style={[styles.abaTexto, { color: COR.vermelho }]} numberOfLines={1}>ALERTA</Text>
-                    </TouchableOpacity>
                   </View>
                 )}
 
@@ -1329,7 +1314,6 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
             />
           )}
           {comparando && acompanhados.length > 1 && <PainelComparativo itens={acompanhados} aoFechar={() => setComparando(false)} />}
-          {alertando && <PainelAlertas aoFechar={() => setAlertando(false)} />}
 
           {celebrando && <Celebracao total={totalItens} aoTerminar={() => setCelebrando(false)} />}
         </View>
@@ -1427,9 +1411,9 @@ const styles = StyleSheet.create({
 
   // adicionar item
   cardAdicionar: { backgroundColor: COR.grafite, borderRadius: 20, borderWidth: 1, borderColor: COR.borda, padding: 14, marginBottom: 10 },
-  abasTopo: { flexDirection: 'row', gap: 6, marginBottom: 10 },
-  aba: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 5, paddingVertical: 11, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
-  abaTexto: { fontSize: 12, fontWeight: 'bold' },
+  abasTopo: { flexDirection: 'row', gap: 10, marginBottom: 10 },
+  aba: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 16, borderWidth: 1, borderStyle: 'dashed' },
+  abaTexto: { fontSize: 13, fontWeight: 'bold' },
   cardBusca: { backgroundColor: COR.grafite, borderRadius: 20, borderWidth: 1, borderColor: COR.borda, padding: 14, marginBottom: 10 },
   resultadoBusca: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10, paddingHorizontal: 2 },
   resultadoTexto: { flex: 1, fontSize: 12, fontWeight: 'bold' },
