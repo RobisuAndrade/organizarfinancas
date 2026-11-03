@@ -13,10 +13,10 @@
 import { Feather } from '@expo/vector-icons';
 import { onValue, push, ref, remove, update } from 'firebase/database';
 import { useEffect, useRef, useState } from 'react';
-import { Animated, Easing, Keyboard, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Animated, Easing, Keyboard, Platform, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 import { useDialogo } from '../hooks/useDialogo';
-import { ScrollTeclado } from './AvoidTeclado';
+import AvoidTeclado, { ScrollTeclado, useAlinharAoTeclado } from './AvoidTeclado';
 import CampoSuave from './CampoSuave';
 import { COR } from './corLista';
 
@@ -73,7 +73,9 @@ function situacao(p: Palavra, agora: number): Situacao {
   return 'ativa';
 }
 
-export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
+
+// ───────────────────────── dados e ações (compartilhados pelo painel e pela tela) ─────────────────────────
+function useAlertas() {
   const { avisar, confirmar } = useDialogo();
   const [palavras, setPalavras] = useState<Palavra[]>([]);
   const [canais, setCanais] = useState<Canal[]>([]);
@@ -84,20 +86,11 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
   const [executor, setExecutor] = useState<Executor>('github');
   const [pcBatimento, setPcBatimento] = useState(0);
   const [historico, setHistorico] = useState<Execucao[]>([]);
-  const [verMais, setVerMais] = useState(false);
+  const [historicoAberto, setHistoricoAberto] = useState(false);
 
   const [termo, setTermo] = useState('');
   const [duracao, setDuracao] = useState<Duracao>('7d');
   const [novoCanal, setNovoCanal] = useState('');
-
-  const entrada = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    Animated.timing(entrada, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
-  }, []);
-  const fechar = () => {
-    Keyboard.dismiss();
-    Animated.timing(entrada, { toValue: 0, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => aoFechar());
-  };
 
   // relógio para atualizar "vence em..." e "última checagem"
   useEffect(() => {
@@ -144,7 +137,7 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
         listaH.push({ quando: Number(h.quando), origem: h.origem === 'pc' ? 'pc' : 'github', avisos: Number(h.avisos) || 0, ok: h.ok !== false });
       }
       listaH.sort((a, b) => b.quando - a.quando);
-      setHistorico(listaH.slice(0, 30));
+      setHistorico(listaH.slice(0, 10));
     });
     return () => unsub();
   }, []);
@@ -259,7 +252,7 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
   const pedirTeste = async () => {
     try {
       await update(ref(db, 'alertasPromo/estado'), { pedirTeste: Date.now() });
-      avisar('Teste pedido', 'Em até uns 5 minutos chega uma mensagem de teste no grupo do Telegram.', 'sucesso');
+      avisar('Teste pedido', 'Em instantes chega uma mensagem de teste no grupo do Telegram.', 'sucesso');
     } catch {
       avisar('Não foi possível pedir o teste', 'Tente de novo.', 'erro');
     }
@@ -275,25 +268,228 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
         ? `Última checagem há ${tempoRestante(idadeMin * 60000)}`
         : 'Checou agora há pouco';
   const testeEsperando = testePedido > testeAtendido;
-
   const ativas = palavras.filter((p) => situacao(p, agora) === 'ativa').length;
 
   // PC com sinal nos últimos 3 minutos = conectado
-  const pcOnline = pcBatimento > 0 && agora - pcBatimento > 0 && 3 * 60000 > agora - pcBatimento;
+  const pcOnline = pcBatimento > 0 && agora >= pcBatimento && 3 * 60000 > agora - pcBatimento;
   const textoPc = pcOnline
     ? `PC conectado (sinal há ${tempoRestante(Math.max(60000, agora - pcBatimento))})`
     : pcBatimento > 0
-      ? 'PC sem sinal. O GitHub assume sozinho.'
-      : 'O vigia do PC nunca foi aberto.';
+      ? 'PC sem sinal. O GitHub assume sozinho'
+      : 'O vigia do PC nunca foi aberto';
 
-  // histórico: mais recente primeiro, com aviso quando houve uma pausa grande entre duas execuções
-  const linhasHist = historico.slice(0, verMais ? 30 : 5).map((h, i) => {
+  // histórico: só as 5 mais recentes, com aviso quando houve uma pausa grande entre duas execuções
+  const linhasHist = historico.slice(0, 5).map((h, i) => {
     const anterior = historico[i + 1];
     const pausa = anterior ? h.quando - anterior.quando : 0;
     return { h, pausa: pausa > 20 * 60000 ? pausa : 0 };
   });
 
+  return {
+    palavras, canais, executor, historicoAberto, setHistoricoAberto, termo, setTermo, duracao, setDuracao, novoCanal, setNovoCanal,
+    agora, ativas, ultimaVerificacao, vigiaParado, textoVigia, testeEsperando, pcOnline, textoPc, linhasHist, historicoTotal: historico.length,
+    ativarPalavra, alternarPalavra, renovarPalavra, apagarPalavra, adicionarCanal, alternarCanal, apagarCanal, mudarExecutor, pedirTeste,
+  };
+}
+type Alertas = ReturnType<typeof useAlertas>;
+
+// ───────────────────────── conteúdo (igual no painel e na tela) ─────────────────────────
+function CorpoAlertas({ A }: { A: Alertas }) {
   const corSituacao = (s: Situacao) => (s === 'ativa' ? COR.verde : s === 'pausada' ? COR.cinza : COR.vermelho);
+  const ultimaExec = A.linhasHist.length > 0 ? A.linhasHist[0].h : null;
+
+  return (
+    <>
+      {/* situação do vigia */}
+      <View style={[styles.vigia, A.vigiaParado && { borderColor: `${COR.vermelho}66` }]}>
+        <View style={[styles.bolinha, { backgroundColor: A.ultimaVerificacao === 0 ? COR.cinza : A.vigiaParado ? COR.vermelho : COR.verde }]} />
+        <View style={{ flex: 1 }}>
+          <Text style={styles.vigiaTexto}>{A.textoVigia}</Text>
+          {A.vigiaParado && <Text style={styles.vigiaAviso}>Parece parado. Veja a aba Actions no GitHub ou o vigia do PC.</Text>}
+        </View>
+        <TouchableOpacity onPress={A.pedirTeste} disabled={A.testeEsperando} style={[styles.btnTeste, A.testeEsperando && { opacity: 0.5 }]}>
+          <Text style={styles.btnTesteTexto}>{A.testeEsperando ? 'Aguardando…' : 'Enviar teste'}</Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* quem vigia */}
+      <Text style={styles.secao}>Quem vigia</Text>
+      <View style={styles.seg}>
+        {([
+          { chave: 'github' as Executor, rotulo: 'GitHub', icone: 'cloud' as const },
+          { chave: 'pc' as Executor, rotulo: 'Meu PC', icone: 'monitor' as const },
+        ]).map((op) => {
+          const ativo = A.executor === op.chave;
+          return (
+            <TouchableOpacity
+              key={op.chave}
+              onPress={() => A.mudarExecutor(op.chave)}
+              activeOpacity={0.85}
+              style={[styles.segBtn, ativo && { backgroundColor: COR.lavanda }]}
+            >
+              <Feather name={op.icone} size={14} color={ativo ? COR.grafite : COR.cinza} />
+              <Text style={[styles.segTexto, ativo && { color: COR.grafite }]}>{op.rotulo}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+      <Text style={styles.dica}>
+        {A.executor === 'pc'
+          ? `${A.textoPc}. Confere a cada 1 minuto enquanto o vigia do PC estiver aberto.`
+          : `Confere a cada ~5 minutos (o GitHub às vezes atrasa). ${A.pcOnline ? 'O PC está conectado: escolha "Meu PC" para conferir a cada 1 minuto.' : ''}`}
+      </Text>
+
+      {/* últimas execuções (recolhido; toque para ver as 5 últimas) */}
+      <TouchableOpacity style={styles.histCab} onPress={() => A.setHistoricoAberto(!A.historicoAberto)} activeOpacity={0.8}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.secaoSemMargem}>Últimas execuções</Text>
+          {!A.historicoAberto && (
+            <Text style={styles.histResumo} numberOfLines={1}>
+              {ultimaExec
+                ? `${horaCompleta(ultimaExec.quando)} · ${ultimaExec.origem === 'pc' ? 'Meu PC' : 'GitHub'} · ${ultimaExec.ok ? (ultimaExec.avisos > 0 ? `${ultimaExec.avisos} ${ultimaExec.avisos > 1 ? 'avisos' : 'aviso'}` : 'sem avisos') : 'falha'}`
+                : 'Ainda nenhuma execução registrada'}
+            </Text>
+          )}
+        </View>
+        <View style={styles.histSeta}>
+          <Feather name={A.historicoAberto ? 'chevron-up' : 'chevron-down'} size={18} color={COR.lavanda} />
+        </View>
+      </TouchableOpacity>
+      {A.historicoAberto && A.linhasHist.length === 0 && <Text style={styles.vazio}>Ainda nenhuma execução registrada.</Text>}
+      {A.historicoAberto &&
+        A.linhasHist.map(({ h, pausa }) => (
+          <View key={h.quando}>
+            <View style={styles.linhaHist}>
+              <View style={[styles.bolinha, { backgroundColor: h.ok ? COR.verde : COR.vermelho }]} />
+              <Text style={styles.histHora}>{horaCompleta(h.quando)}</Text>
+              <Text style={styles.histOrigem}>{h.origem === 'pc' ? 'Meu PC' : 'GitHub'}</Text>
+              <Text style={[styles.histAvisos, h.avisos > 0 && { color: COR.lima }]}>
+                {h.ok ? (h.avisos > 0 ? `${h.avisos} ${h.avisos > 1 ? 'avisos' : 'aviso'}` : 'sem avisos') : 'falha'}
+              </Text>
+            </View>
+            {pausa > 0 && <Text style={styles.histPausa}>⚠ ficou {tempoRestante(pausa)} sem rodar antes desta</Text>}
+          </View>
+        ))}
+
+      {/* nova palavra */}
+      <Text style={[styles.secao, { marginTop: 22 }]}>Vigiar uma palavra</Text>
+      <CampoSuave
+        rotulo="Ex.: lava e seca"
+        valor={A.termo}
+        aoMudar={A.setTermo}
+        aoEnviar={A.ativarPalavra}
+        icone="search"
+        maxLength={60}
+        autoCapitalizar="none"
+      />
+      <Text style={styles.dica}>Avisa quando a mensagem tiver todas as palavras (não importa a ordem).</Text>
+
+      <Text style={[styles.rotuloPeq, { marginTop: 12 }]}>Por quanto tempo?</Text>
+      <View style={styles.chipsLinha}>
+        {DURACOES.map((d) => {
+          const ativo = d.chave === A.duracao;
+          return (
+            <TouchableOpacity
+              key={d.chave}
+              onPress={() => A.setDuracao(d.chave)}
+              activeOpacity={0.85}
+              style={[styles.chip, ativo && { backgroundColor: COR.lima, borderColor: COR.lima }]}
+            >
+              <Text style={[styles.chipTexto, ativo && { color: COR.grafite }]}>{d.rotulo}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      <TouchableOpacity style={styles.btnPrimario} onPress={A.ativarPalavra} activeOpacity={0.85}>
+        <Feather name="bell" size={16} color={COR.grafite} />
+        <Text style={styles.btnPrimarioTexto}>  Ativar alerta</Text>
+      </TouchableOpacity>
+
+      {/* palavras */}
+      <Text style={[styles.secao, { marginTop: 22 }]}>Palavras vigiadas</Text>
+      {A.palavras.length === 0 && <Text style={styles.vazio}>Nenhuma ainda. Cadastre a primeira acima.</Text>}
+      {A.palavras.map((p) => {
+        const s = situacao(p, A.agora);
+        const cor = corSituacao(s);
+        let detalhe = '';
+        if (s === 'ativa') detalhe = p.expiraEm > 0 ? `vence em ${tempoRestante(p.expiraEm - A.agora)} (${dataHora(p.expiraEm)})` : 'sem prazo, até você desligar';
+        else if (s === 'pausada') detalhe = 'pausada';
+        else detalhe = `terminou em ${dataHora(p.expiraEm)}`;
+        return (
+          <View key={p.id} style={[styles.linha, s !== 'ativa' && { opacity: 0.8 }]}>
+            <View style={[styles.faixa, { backgroundColor: cor }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.linhaTitulo} numberOfLines={2}>{p.termo}</Text>
+              <Text style={[styles.linhaDetalhe, { color: s === 'ativa' ? COR.cinza : cor }]}>
+                {detalhe}
+                {p.avisos > 0 ? ` · ${p.avisos} ${p.avisos > 1 ? 'avisos' : 'aviso'}` : ''}
+              </Text>
+            </View>
+            {s === 'expirada' ? (
+              <TouchableOpacity onPress={() => A.renovarPalavra(p)} style={styles.btnPequeno}>
+                <Feather name="refresh-cw" size={15} color={COR.lima} />
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity onPress={() => A.alternarPalavra(p)} style={styles.btnPequeno}>
+                <Feather name={p.ativo ? 'pause' : 'play'} size={15} color={COR.lavanda} />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity onPress={() => A.apagarPalavra(p)} style={styles.btnPequeno}>
+              <Feather name="trash-2" size={15} color={COR.vermelho} />
+            </TouchableOpacity>
+          </View>
+        );
+      })}
+
+      {/* canais */}
+      <Text style={[styles.secao, { marginTop: 22 }]}>Canais vigiados</Text>
+      {A.canais.length === 0 && <Text style={styles.vazio}>Nenhum canal. Cadastre um abaixo.</Text>}
+      {A.canais.map((c) => (
+        <View key={c.id} style={[styles.linha, !c.ativo && { opacity: 0.6 }]}>
+          <View style={[styles.faixa, { backgroundColor: c.ativo ? COR.lavanda : COR.cinza }]} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.linhaTitulo} numberOfLines={1}>@{c.usuario}</Text>
+            <Text style={styles.linhaDetalhe}>{c.ativo ? 'vigiando' : 'pausado'}</Text>
+          </View>
+          <TouchableOpacity onPress={() => A.alternarCanal(c)} style={styles.btnPequeno}>
+            <Feather name={c.ativo ? 'pause' : 'play'} size={15} color={COR.lavanda} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => A.apagarCanal(c)} style={styles.btnPequeno}>
+            <Feather name="trash-2" size={15} color={COR.vermelho} />
+          </TouchableOpacity>
+        </View>
+      ))}
+      <View style={{ marginTop: 10 }}>
+        <CampoSuave
+          rotulo="Link do canal (t.me/nome)"
+          valor={A.novoCanal}
+          aoMudar={A.setNovoCanal}
+          aoEnviar={A.adicionarCanal}
+          icone="link"
+          maxLength={120}
+          autoCapitalizar="none"
+        />
+      </View>
+      <TouchableOpacity style={styles.btnSecundario} onPress={A.adicionarCanal} activeOpacity={0.85}>
+        <Feather name="plus" size={15} color={COR.lavanda} />
+        <Text style={styles.btnSecundarioTexto}>  Adicionar canal</Text>
+      </TouchableOpacity>
+    </>
+  );
+}
+
+// ───────────────────────── painel (aberto pelo botão ALERTA ao lado de Comparar) ─────────────────────────
+export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
+  const A = useAlertas();
+  const entrada = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    Animated.timing(entrada, { toValue: 1, duration: 380, easing: Easing.out(Easing.cubic), useNativeDriver: true }).start();
+  }, []);
+  const fechar = () => {
+    Keyboard.dismiss();
+    Animated.timing(entrada, { toValue: 0, duration: 220, easing: Easing.in(Easing.cubic), useNativeDriver: true }).start(() => aoFechar());
+  };
 
   return (
     <View style={styles.fundo}>
@@ -311,7 +507,7 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
           <View style={{ flex: 1, paddingRight: 10 }}>
             <Text style={styles.titulo}>Alerta de promoções</Text>
             <Text style={styles.sub}>
-              {ativas > 0 ? `${ativas} ${ativas > 1 ? 'palavras ativas' : 'palavra ativa'} · aviso no Telegram` : 'Aviso no Telegram'}
+              {A.ativas > 0 ? `${A.ativas} ${A.ativas > 1 ? 'palavras ativas' : 'palavra ativa'} · aviso no Telegram` : 'Aviso no Telegram'}
             </Text>
           </View>
           <TouchableOpacity onPress={fechar} style={styles.closeBtn}>
@@ -319,179 +515,73 @@ export function PainelAlertas({ aoFechar }: { aoFechar: () => void }) {
           </TouchableOpacity>
         </View>
 
-        <ScrollTeclado showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 16 }}>
-          {/* situação do vigia */}
-          <View style={[styles.vigia, vigiaParado && { borderColor: `${COR.vermelho}66` }]}>
-            <View style={[styles.bolinha, { backgroundColor: ultimaVerificacao === 0 ? COR.cinza : vigiaParado ? COR.vermelho : COR.verde }]} />
-            <View style={{ flex: 1 }}>
-              <Text style={styles.vigiaTexto}>{textoVigia}</Text>
-              {vigiaParado && <Text style={styles.vigiaAviso}>Parece parado. Veja a aba Actions no GitHub.</Text>}
-            </View>
-            <TouchableOpacity onPress={pedirTeste} disabled={testeEsperando} style={[styles.btnTeste, testeEsperando && { opacity: 0.5 }]}>
-              <Text style={styles.btnTesteTexto}>{testeEsperando ? 'Aguardando…' : 'Enviar teste'}</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* quem vigia */}
-          <Text style={styles.secao}>Quem vigia</Text>
-          <View style={styles.seg}>
-            {([
-              { chave: 'github' as Executor, rotulo: 'GitHub', icone: 'cloud' as const },
-              { chave: 'pc' as Executor, rotulo: 'Meu PC', icone: 'monitor' as const },
-            ]).map((op) => {
-              const ativo = executor === op.chave;
-              return (
-                <TouchableOpacity
-                  key={op.chave}
-                  onPress={() => mudarExecutor(op.chave)}
-                  activeOpacity={0.85}
-                  style={[styles.segBtn, ativo && { backgroundColor: COR.lavanda }]}
-                >
-                  <Feather name={op.icone} size={14} color={ativo ? COR.grafite : COR.cinza} />
-                  <Text style={[styles.segTexto, ativo && { color: COR.grafite }]}>{op.rotulo}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <Text style={styles.dica}>
-            {executor === 'pc'
-              ? `${textoPc}. Confere a cada 1 minuto enquanto o vigia do PC estiver aberto.`
-              : `Confere a cada ~5 minutos (o GitHub às vezes atrasa). ${pcOnline ? 'O PC está conectado: escolha "Meu PC" para conferir a cada 1 minuto.' : ''}`}
-          </Text>
-
-          {/* últimas execuções */}
-          <Text style={[styles.secao, { marginTop: 16 }]}>Últimas execuções</Text>
-          {linhasHist.length === 0 && <Text style={styles.vazio}>Ainda nenhuma execução registrada.</Text>}
-          {linhasHist.map(({ h, pausa }) => (
-            <View key={h.quando}>
-              <View style={styles.linhaHist}>
-                <View style={[styles.bolinha, { backgroundColor: h.ok ? COR.verde : COR.vermelho }]} />
-                <Text style={styles.histHora}>{horaCompleta(h.quando)}</Text>
-                <Text style={styles.histOrigem}>{h.origem === 'pc' ? 'Meu PC' : 'GitHub'}</Text>
-                <Text style={[styles.histAvisos, h.avisos > 0 && { color: COR.lima }]}>
-                  {h.ok ? (h.avisos > 0 ? `${h.avisos} ${h.avisos > 1 ? 'avisos' : 'aviso'}` : 'sem avisos') : 'falha'}
-                </Text>
-              </View>
-              {pausa > 0 && <Text style={styles.histPausa}>⚠ ficou {tempoRestante(pausa)} sem rodar antes desta</Text>}
-            </View>
-          ))}
-          {historico.length > 5 && (
-            <TouchableOpacity onPress={() => setVerMais(!verMais)} style={{ paddingVertical: 8 }}>
-              <Text style={styles.verMais}>{verMais ? 'Mostrar menos' : 'Ver mais'}</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* nova palavra */}
-          <Text style={styles.secao}>Vigiar uma palavra</Text>
-          <CampoSuave
-            rotulo="Ex.: lava e seca"
-            valor={termo}
-            aoMudar={setTermo}
-            aoEnviar={ativarPalavra}
-            icone="search"
-            maxLength={60}
-            autoCapitalizar="none"
-          />
-          <Text style={styles.dica}>Avisa quando a mensagem tiver todas as palavras (não importa a ordem).</Text>
-
-          <Text style={[styles.rotuloPeq, { marginTop: 12 }]}>Por quanto tempo?</Text>
-          <View style={styles.chipsLinha}>
-            {DURACOES.map((d) => {
-              const ativo = d.chave === duracao;
-              return (
-                <TouchableOpacity
-                  key={d.chave}
-                  onPress={() => setDuracao(d.chave)}
-                  activeOpacity={0.85}
-                  style={[styles.chip, ativo && { backgroundColor: COR.lima, borderColor: COR.lima }]}
-                >
-                  <Text style={[styles.chipTexto, ativo && { color: COR.grafite }]}>{d.rotulo}</Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <TouchableOpacity style={styles.btnPrimario} onPress={ativarPalavra} activeOpacity={0.85}>
-            <Feather name="bell" size={16} color={COR.grafite} />
-            <Text style={styles.btnPrimarioTexto}>  Ativar alerta</Text>
-          </TouchableOpacity>
-
-          {/* palavras */}
-          <Text style={[styles.secao, { marginTop: 22 }]}>Palavras vigiadas</Text>
-          {palavras.length === 0 && <Text style={styles.vazio}>Nenhuma ainda. Cadastre a primeira acima.</Text>}
-          {palavras.map((p) => {
-            const s = situacao(p, agora);
-            const cor = corSituacao(s);
-            let detalhe = '';
-            if (s === 'ativa') detalhe = p.expiraEm > 0 ? `vence em ${tempoRestante(p.expiraEm - agora)} (${dataHora(p.expiraEm)})` : 'sem prazo, até você desligar';
-            else if (s === 'pausada') detalhe = 'pausada';
-            else detalhe = `terminou em ${dataHora(p.expiraEm)}`;
-            return (
-              <View key={p.id} style={[styles.linha, s !== 'ativa' && { opacity: 0.8 }]}>
-                <View style={[styles.faixa, { backgroundColor: cor }]} />
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.linhaTitulo} numberOfLines={2}>{p.termo}</Text>
-                  <Text style={[styles.linhaDetalhe, { color: s === 'ativa' ? COR.cinza : cor }]}>
-                    {detalhe}
-                    {p.avisos > 0 ? ` · ${p.avisos} ${p.avisos > 1 ? 'avisos' : 'aviso'}` : ''}
-                  </Text>
-                </View>
-                {s === 'expirada' ? (
-                  <TouchableOpacity onPress={() => renovarPalavra(p)} style={styles.btnPequeno}>
-                    <Feather name="refresh-cw" size={15} color={COR.lima} />
-                  </TouchableOpacity>
-                ) : (
-                  <TouchableOpacity onPress={() => alternarPalavra(p)} style={styles.btnPequeno}>
-                    <Feather name={p.ativo ? 'pause' : 'play'} size={15} color={COR.lavanda} />
-                  </TouchableOpacity>
-                )}
-                <TouchableOpacity onPress={() => apagarPalavra(p)} style={styles.btnPequeno}>
-                  <Feather name="trash-2" size={15} color={COR.vermelho} />
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-
-          {/* canais */}
-          <Text style={[styles.secao, { marginTop: 22 }]}>Canais vigiados</Text>
-          {canais.length === 0 && <Text style={styles.vazio}>Nenhum canal. Cadastre um abaixo.</Text>}
-          {canais.map((c) => (
-            <View key={c.id} style={[styles.linha, !c.ativo && { opacity: 0.6 }]}>
-              <View style={[styles.faixa, { backgroundColor: c.ativo ? COR.lavanda : COR.cinza }]} />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.linhaTitulo} numberOfLines={1}>@{c.usuario}</Text>
-                <Text style={styles.linhaDetalhe}>{c.ativo ? 'vigiando' : 'pausado'}</Text>
-              </View>
-              <TouchableOpacity onPress={() => alternarCanal(c)} style={styles.btnPequeno}>
-                <Feather name={c.ativo ? 'pause' : 'play'} size={15} color={COR.lavanda} />
-              </TouchableOpacity>
-              <TouchableOpacity onPress={() => apagarCanal(c)} style={styles.btnPequeno}>
-                <Feather name="trash-2" size={15} color={COR.vermelho} />
-              </TouchableOpacity>
-            </View>
-          ))}
-          <View style={{ marginTop: 10 }}>
-            <CampoSuave
-              rotulo="Link do canal (t.me/nome)"
-              valor={novoCanal}
-              aoMudar={setNovoCanal}
-              aoEnviar={adicionarCanal}
-              icone="link"
-              maxLength={120}
-              autoCapitalizar="none"
-            />
-          </View>
-          <TouchableOpacity style={styles.btnSecundario} onPress={adicionarCanal} activeOpacity={0.85}>
-            <Feather name="plus" size={15} color={COR.lavanda} />
-            <Text style={styles.btnSecundarioTexto}>  Adicionar canal</Text>
-          </TouchableOpacity>
+        {/* paddingBottom grande: a barra de baixo flutua por cima e não pode cobrir o último botão */}
+        <ScrollTeclado showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 130 }}>
+          <CorpoAlertas A={A} />
         </ScrollTeclado>
       </Animated.View>
     </View>
   );
 }
 
+// ───────────────────────── tela cheia (ícone de sino na barra de baixo) ─────────────────────────
+export function TelaAlertas({ aoVoltar }: { aoVoltar: () => void }) {
+  const A = useAlertas();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
+  const { onTouchEnd } = useAlinharAoTeclado(scrollRef);
+
+  // mesma mecânica da tela "Para a Nossa Casa": ao descer, o cabeçalho some; ao subir um pouco, ele volta
+  const headerTranslateY = Animated.diffClamp(scrollY, 0, 100).interpolate({ inputRange: [0, 100], outputRange: [0, -100], extrapolate: 'clamp' });
+
+  return (
+    <SafeAreaView style={styles.tela}>
+      <AvoidTeclado>
+        <View style={styles.telaMiolo}>
+          <Animated.ScrollView
+            ref={scrollRef as any}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingTop: 120, paddingBottom: 170, paddingHorizontal: 20 }}
+            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+            scrollEventThrottle={16}
+            onTouchEnd={onTouchEnd}
+          >
+            <CorpoAlertas A={A} />
+          </Animated.ScrollView>
+
+          <Animated.View style={[styles.headerFlutuante, { transform: [{ translateY: headerTranslateY }] }]}>
+            <View style={styles.headerLinha}>
+              <TouchableOpacity onPress={aoVoltar} style={styles.backButton}>
+                <Feather name="arrow-left" size={24} color={COR.lima} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.tituloTela}>Alerta de promoções</Text>
+                <Text style={styles.subtituloTela}>
+                  {A.ativas > 0 ? `${A.ativas} ${A.ativas > 1 ? 'palavras ativas' : 'palavra ativa'} · aviso no Telegram` : 'Aviso no Telegram'}
+                </Text>
+              </View>
+            </View>
+          </Animated.View>
+        </View>
+      </AvoidTeclado>
+    </SafeAreaView>
+  );
+}
+
 const styles = StyleSheet.create({
+  secaoSemMargem: { color: COR.texto, fontSize: 14, fontWeight: 'bold' },
+  histCab: { flexDirection: 'row', alignItems: 'center', marginTop: 18, marginBottom: 8, backgroundColor: COR.grafite, borderRadius: 14, borderWidth: 1, borderColor: COR.borda, paddingVertical: 10, paddingHorizontal: 12 },
+  histResumo: { color: COR.cinza, fontSize: 11, marginTop: 3 },
+  histSeta: { width: 32, height: 32, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: COR.card, borderWidth: 1, borderColor: COR.borda },
+
+  tela: { flex: 1, backgroundColor: COR.grafite },
+  telaMiolo: { flex: 1, width: '100%', maxWidth: 600, alignSelf: 'center' },
+  headerFlutuante: { position: 'absolute', top: 0, left: 0, right: 0, backgroundColor: COR.grafite, zIndex: 10, paddingTop: Platform.OS === 'ios' ? 50 : 40, paddingBottom: 15, paddingHorizontal: 20 },
+  headerLinha: { flexDirection: 'row', alignItems: 'center' },
+  backButton: { width: 40, height: 40, borderRadius: 12, backgroundColor: COR.card, justifyContent: 'center', alignItems: 'center', marginRight: 15, borderWidth: 1, borderColor: COR.borda },
+  tituloTela: { fontSize: 22, fontWeight: 'bold', color: COR.texto },
+  subtituloTela: { fontSize: 12, color: COR.lima, fontWeight: 'bold', marginTop: 2 },
   fundo: { ...StyleSheet.absoluteFillObject, justifyContent: 'flex-end', zIndex: 50 },
   folha: {
     backgroundColor: COR.card,
@@ -539,7 +629,6 @@ const styles = StyleSheet.create({
   histOrigem: { color: COR.lavanda, fontSize: 11, fontWeight: 'bold' },
   histAvisos: { color: COR.cinza, fontSize: 11, minWidth: 58, textAlign: 'right' },
   histPausa: { color: COR.vermelho, fontSize: 11, marginBottom: 6, marginLeft: 4 },
-  verMais: { color: COR.lavanda, fontSize: 12, fontWeight: 'bold', textAlign: 'center' },
 
   vazio: { color: COR.cinza, fontSize: 12 },
   linha: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: COR.grafite, borderRadius: 16, borderWidth: 1, borderColor: COR.borda, padding: 12, marginBottom: 8 },
