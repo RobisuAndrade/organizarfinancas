@@ -15,6 +15,7 @@ const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 const PC_VIVO_MS = 3 * 60 * 1000; // sem sinal do PC por mais que isso = PC fora do ar
 const TRAVA_MS = 90 * 1000;
 const HISTORICO_MAX = 60;
+const LIMITE_AVISOS_POR_RODADA = 6; // proteção contra palavra comum demais (ex.: "cupom") lotar o grupo
 
 export async function iniciarFirebase(contaJson) {
   const admin = (await import('firebase-admin')).default;
@@ -86,6 +87,20 @@ async function adquirirTrava(db, dono) {
   return !!resultado.committed;
 }
 
+// estende a trava enquanto a rodada ainda está enviando (uma rodada longa não pode perder a trava)
+async function renovarTrava(db, dono) {
+  await db.ref('alertasPromo/estado/trava').transaction((atual) => (atual && atual.dono === dono ? { dono, ate: Date.now() + TRAVA_MS } : atual));
+}
+
+// palavras que valem AGORA, lidas de novo do Firebase (apagou, pausou ou venceu = para na hora)
+async function palavrasValendo(db) {
+  const agora = Date.now();
+  const bruto = (await db.ref('alertasPromo/palavras').get()).val() || {};
+  return Object.entries(bruto)
+    .map(([id, p]) => ({ id, termo: String(p?.termo || ''), ativo: p?.ativo !== false, expiraEm: Number(p?.expiraEm) || 0 }))
+    .filter((p) => p.termo && p.ativo && (p.expiraEm === 0 || p.expiraEm > agora));
+}
+
 async function liberarTrava(db, dono) {
   await db.ref('alertasPromo/estado/trava').transaction((atual) => (atual && atual.dono === dono ? null : atual));
 }
@@ -142,6 +157,7 @@ async function trabalhar(cfg, origem, raiz, estado) {
   let algumCanalLido = false;
   let falhas = 0;
   let enviados = 0;
+  let pulados = 0; // promoções com palavra que NÃO foram enviadas por causa do limite da rodada
   const contagem = {}; // id da palavra -> avisos novos
 
   for (const usuario of canais) {
@@ -176,21 +192,39 @@ async function trabalhar(cfg, origem, raiz, estado) {
     let processadoAte = lidoAntes;
     for (const post of posts) {
       if (post.id <= lidoAntes) continue;
-      const achadas = palavras.filter((p) => casaPalavra(p.termo, post.texto));
+      let achadas = palavras.filter((p) => casaPalavra(p.termo, post.texto));
       if (achadas.length > 0) {
-        const ok = await enviarTelegram(cfg, montarMensagem(post, achadas.map((p) => p.termo)));
-        if (!ok) {
-          falhas++;
-          break; // não avança além do aviso que falhou: tenta de novo na próxima rodada
+        // confere de novo no Firebase: se a palavra foi apagada/pausada no app, para na hora
+        const vigentes = await palavrasValendo(db);
+        achadas = vigentes.filter((p) => casaPalavra(p.termo, post.texto));
+      }
+      if (achadas.length > 0) {
+        if (enviados >= LIMITE_AVISOS_POR_RODADA) {
+          pulados++; // limite atingido: não manda, mas dá a mensagem por lida
+        } else {
+          await renovarTrava(db, origem);
+          const ok = await enviarTelegram(cfg, montarMensagem(post, achadas.map((p) => p.termo)));
+          if (!ok) {
+            falhas++;
+            break; // não avança além do aviso que falhou: tenta de novo na próxima rodada
+          }
+          enviados++;
+          for (const p of achadas) contagem[p.id] = (contagem[p.id] || 0) + 1;
+          await refLido.set(post.id); // grava o ponto a cada aviso: se a rodada cair, não repete
+          await dormir(1100); // limite do Telegram: ~1 mensagem por segundo no mesmo grupo
         }
-        enviados++;
-        for (const p of achadas) contagem[p.id] = (contagem[p.id] || 0) + 1;
-        await dormir(1100); // limite do Telegram: ~1 mensagem por segundo no mesmo grupo
       }
       processadoAte = post.id;
     }
     if (processadoAte !== lidoAntes) await refLido.set(processadoAte);
     console.log(`Canal @${usuario}: ${posts.length} mensagens lidas, ponto ${processadoAte}.`);
+  }
+
+  if (pulados > 0) {
+    await enviarTelegram(
+      cfg,
+      `⚠️ <b>Muitas promoções de uma vez</b>\nMais ${pulados} promoç${pulados > 1 ? 'ões' : 'ão'} com suas palavras ${pulados > 1 ? 'não foram enviadas' : 'não foi enviada'} para não lotar o grupo (limite de ${LIMITE_AVISOS_POR_RODADA} por rodada). Se alguma palavra é comum demais, como "cupom", apague-a ou deixe-a mais específica.`
+    );
   }
 
   for (const [id, n] of Object.entries(contagem)) {
