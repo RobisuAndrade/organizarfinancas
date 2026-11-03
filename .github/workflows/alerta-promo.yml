@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   workflow_dispatch:
+    inputs:
+      palavra_teste:
+        description: 'TESTE: reenvia para o grupo a mensagem mais recente do canal com esta palavra (deixe vazio para a rodada normal)'
+        required: false
+        default: ''
+      canal_teste:
+        description: 'TESTE: canal a consultar'
+        required: false
+        default: 'gatunopromos'
 
 concurrency:
   group: alerta-promo
@@ -32,3 +41,5 @@ jobs:
           FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          TESTE_PALAVRA: ${{ inputs.palavra_teste }}
+          TESTE_CANAL: ${{ inputs.canal_teste }}

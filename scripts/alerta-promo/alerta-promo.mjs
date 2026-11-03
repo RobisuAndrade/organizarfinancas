@@ -5,21 +5,37 @@
 //   FIREBASE_SERVICE_ACCOUNT  JSON da conta de serviço do Firebase
 //   TELEGRAM_BOT_TOKEN        token do bot (@BotFather)
 //   TELEGRAM_CHAT_ID          id do grupo que recebe os avisos
-import admin from 'firebase-admin';
+//
+// MODO TESTE (rodar à mão no GitHub: Actions > Alerta de promoções > Run workflow):
+//   TESTE_PALAVRA  procura no canal a mensagem mais recente com esta palavra e reenvia para o grupo.
+//                  Não usa o Firebase e não mexe em nada salvo, só serve para ver se o Telegram funciona.
+//   TESTE_CANAL    canal a consultar no teste (padrão: gatunopromos)
 import { analisarCanal, casaPalavra, montarMensagem } from './lib.mjs';
 
 const DATABASE_URL = 'https://organizar-financas-default-rtdb.firebaseio.com';
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 const CONTA = process.env.FIREBASE_SERVICE_ACCOUNT;
+const TESTE_PALAVRA = (process.env.TESTE_PALAVRA || '').trim();
+const TESTE_CANAL = (process.env.TESTE_CANAL || '').trim() || 'gatunopromos';
 
-if (!TOKEN || !CHAT_ID || !CONTA) {
-  console.error('Faltam secrets: TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID e/ou FIREBASE_SERVICE_ACCOUNT.');
-  process.exit(1);
+const faltando = [];
+if (!TOKEN) faltando.push('TELEGRAM_BOT_TOKEN');
+if (!CHAT_ID) faltando.push('TELEGRAM_CHAT_ID');
+if (!TESTE_PALAVRA && !CONTA) faltando.push('FIREBASE_SERVICE_ACCOUNT');
+if (faltando.length > 0) {
+  // sai sem erro para não encher a caixa de e-mail enquanto os Secrets ainda não foram criados
+  console.log(`Ainda faltam Secrets no GitHub: ${faltando.join(', ')}. Nada foi feito.`);
+  process.exit(0);
 }
 
-admin.initializeApp({ credential: admin.credential.cert(JSON.parse(CONTA)), databaseURL: DATABASE_URL });
-const db = admin.database();
+let admin = null;
+let db = null;
+if (!TESTE_PALAVRA) {
+  admin = (await import('firebase-admin')).default;
+  admin.initializeApp({ credential: admin.credential.cert(JSON.parse(CONTA)), databaseURL: DATABASE_URL });
+  db = admin.database();
+}
 
 const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -53,7 +69,31 @@ async function baixarCanal(usuario) {
   return resp.text();
 }
 
+// Teste: pega a mensagem mais recente do canal que tenha a palavra e manda para o grupo.
+async function modoTeste() {
+  const usuario = TESTE_CANAL.replace(/^@/, '');
+  console.log(`Modo teste: procurando "${TESTE_PALAVRA}" em @${usuario}.`);
+  const html = await baixarCanal(usuario);
+  const posts = analisarCanal(html, usuario);
+  console.log(`${posts.length} mensagem(ns) lida(s) da página do canal.`);
+  if (posts.length === 0) {
+    console.error('Nenhuma mensagem encontrada: o canal pode ser privado ou sem prévia na web.');
+    process.exit(1);
+  }
+  const achada = [...posts].reverse().find((p) => casaPalavra(TESTE_PALAVRA, p.texto));
+  if (!achada) {
+    const ok = await enviarTelegram(
+      `✅ <b>Teste do alerta</b>\nO Telegram está funcionando e li ${posts.length} mensagens de @${usuario}, mas nenhuma tem "${TESTE_PALAVRA.replace(/[<>&]/g, '')}". Tente outra palavra.`
+    );
+    process.exit(ok ? 0 : 1);
+  }
+  const ok = await enviarTelegram(montarMensagem(achada, [TESTE_PALAVRA]));
+  console.log(ok ? `Enviado: mensagem ${achada.id}.` : 'Falha ao enviar para o Telegram.');
+  process.exit(ok ? 0 : 1);
+}
+
 async function main() {
+  if (TESTE_PALAVRA) return modoTeste();
   const agora = Date.now();
   const raiz = (await db.ref('alertasPromo').get()).val() || {};
   const estado = raiz.estado || {};
