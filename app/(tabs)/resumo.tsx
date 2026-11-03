@@ -1,11 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useVoltar } from '../../hooks/useVoltar';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, ref } from 'firebase/database';
 import { db } from '../../firebaseConfig';
+import { eventoRolagem } from '../../components/BarraScroll';
 import { converterParaNumero, formatarMoeda, mascarar } from '../../utils/formatadores';
 
 const REGRAS_CARTOES: { [key: string]: { fechamento: number, vencimento: number, cor: string } } = {
@@ -57,6 +59,7 @@ function FundoFinanceiro() {
 
 export default function VisaoGeral() {
   const router = useRouter();
+  const voltar = useVoltar();
   
   const [listaGastos, setListaGastos] = useState<any[]>([]);
   const [listaCompras, setListaCompras] = useState<any[]>([]);
@@ -244,7 +247,7 @@ export default function VisaoGeral() {
         {/* CABEÇALHO FLUTUANTE */}
         <Animated.View style={[styles.headerFlutuante, { transform: [{ translateY: headerTranslateY }] }]}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backButton}>
+            <TouchableOpacity onPress={voltar} style={styles.backButton}>
               <Feather name="arrow-left" size={24} color="#D4FF3A" />
             </TouchableOpacity>
             <View>
@@ -268,13 +271,10 @@ export default function VisaoGeral() {
         </Animated.View>
 
         {/* ÁREA DE ROLAGEM */}
-        <Animated.ScrollView 
+        <Animated.ScrollView keyboardShouldPersistTaps="handled" 
           showsVerticalScrollIndicator={false} 
           contentContainerStyle={{ paddingTop: 205, paddingBottom: 170 }}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true }
-          )}
+          onScroll={eventoRolagem(scrollY)}
           scrollEventThrottle={16}
         >
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnimUp }], paddingHorizontal: 20 }}>
@@ -406,7 +406,7 @@ export default function VisaoGeral() {
               </View>
             </View>
 
-            <ScrollView 
+            <ScrollView keyboardShouldPersistTaps="handled" 
               ref={scrollCardsRef} 
               horizontal 
               showsHorizontalScrollIndicator={false} 
@@ -477,7 +477,7 @@ export default function VisaoGeral() {
 
             <Text style={styles.inputLabelMicro}>Itens considerados neste ciclo:</Text>
             
-            <ScrollView style={{ maxHeight: 350, marginVertical: 10 }} showsVerticalScrollIndicator={false}>
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 350, marginVertical: 10 }} showsVerticalScrollIndicator={false}>
               {faturaDetalhe.itens.length > 0 ? faturaDetalhe.itens.map((item, index) => (
                 <View key={item.id || index} style={styles.detalheItemRow}>
                   <View style={{ flex: 1, paddingRight: 10 }}>

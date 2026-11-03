@@ -52,7 +52,7 @@ export default function Calculadora({ visivel, fechar }: { visivel: boolean, fec
   ];
 
   return (
-    <Modal visible={visivel} animationType="slide" transparent>
+    <Modal visible={visivel} animationType="fade" transparent onRequestClose={fechar}>
       <View style={styles.modalOverlay}>
         <SafeAreaView style={styles.containerWrapper}>
           <View style={styles.container}>
@@ -110,9 +110,9 @@ export default function Calculadora({ visivel, fechar }: { visivel: boolean, fec
 }
 
 const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
-  containerWrapper: { width: '100%', maxWidth: 450, alignSelf: 'center' },
-  container: { backgroundColor: '#1C1D25', borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 25, paddingBottom: Platform.OS === 'ios' ? 40 : 25, borderWidth: 1, borderColor: '#2A2B34' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center' },
+  containerWrapper: { width: '92%', maxWidth: 450, alignSelf: 'center' },
+  container: { backgroundColor: '#1C1D25', borderRadius: 32, padding: 25, borderWidth: 1, borderColor: '#2A2B34' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   titulo: { color: '#F4F5F7', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
   closeBtn: { backgroundColor: '#0B0B0F', padding: 8, borderRadius: 12, borderWidth: 1, borderColor: '#2A2B34' },

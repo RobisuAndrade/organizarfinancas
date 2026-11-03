@@ -1,6 +1,8 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useVoltar } from '../../hooks/useVoltar';
 import { useEffect, useRef, useState } from 'react';
+import { aoRolarBarra } from '../../components/BarraScroll';
 import { Animated, FlatList, Modal, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
@@ -21,6 +23,7 @@ import { converterParaNumero, formatarData, formatarInputMoeda, formatarMoeda } 
 
 export default function NossasMetas() {
   const router = useRouter();
+  const voltar = useVoltar();
   const { avisar } = useDialogo();
 
   // Estados dos Saldos
@@ -130,7 +133,7 @@ export default function NossasMetas() {
     <View style={styles.headerComponent}>
       {/* HEADER DE NAVEGAÇÃO */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backButton}>
+        <TouchableOpacity onPress={voltar} style={styles.backButton}>
           <Feather name="arrow-left" size={24} color="#D4FF3A" />
         </TouchableOpacity>
         <View>
@@ -203,7 +206,7 @@ export default function NossasMetas() {
         <Text style={styles.sectionTitle}>Extrato da Conta</Text>
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosScroll} contentContainerStyle={{ paddingBottom: 15 }}>
+      <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosScroll} contentContainerStyle={{ paddingBottom: 15 }}>
         {[
           { id: 'TODOS', label: 'Tudo' },
           { id: 'ENTRADAS', label: 'Entradas' },
@@ -228,10 +231,12 @@ export default function NossasMetas() {
     <SafeAreaView style={styles.safeArea}>
       <Animated.View style={[styles.container, { opacity: fadeAnim, transform: [{ translateY: slideAnimUp }] }]}>
         
-        <FlatList
+        <FlatList keyboardShouldPersistTaps="handled"
           data={historicoFiltrado}
           keyExtractor={item => item.id}
           showsVerticalScrollIndicator={false}
+          onScroll={(e) => aoRolarBarra(e.nativeEvent.contentOffset.y)}
+          scrollEventThrottle={16}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={{ paddingBottom: 170 }}
           renderItem={({ item }) => (

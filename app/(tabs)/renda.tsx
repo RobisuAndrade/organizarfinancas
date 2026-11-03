@@ -1,10 +1,12 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useVoltar } from '../../hooks/useVoltar';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 // Importações do Firebase
 import { onValue, ref, set, update } from 'firebase/database';
+import { eventoRolagem } from '../../components/BarraScroll';
 import { db } from '../../firebaseConfig';
 import { useDialogo } from '../../hooks/useDialogo';
 import { useAlinharAoTeclado, useAlturaTeclado } from '../../components/AvoidTeclado';
@@ -29,6 +31,7 @@ const formatarNomeMes = (anoMes: string) => {
 
 export default function Salarios() {
   const router = useRouter();
+  const voltar = useVoltar();
   const { avisar } = useDialogo();
 
   const [abaAtiva, setAbaAtiva] = useState<'Robinho' | 'Vanessinha'>('Robinho');
@@ -173,7 +176,7 @@ export default function Salarios() {
         <Animated.View style={[styles.headerFlutuante, { transform: [{ translateY: headerTranslateY }] }]}>
           
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backButton}>
+            <TouchableOpacity onPress={voltar} style={styles.backButton}>
               <Feather name="arrow-left" size={24} color="#D4FF3A" />
             </TouchableOpacity>
             <View>
@@ -216,10 +219,7 @@ export default function Salarios() {
           showsVerticalScrollIndicator={false} 
           // O paddingTop: 250 afasta os cards para baixo do cabeçalho flutuante no estado inicial
           contentContainerStyle={{ paddingTop: 250, paddingBottom: 170 + alturaTeclado, paddingHorizontal: 20 }}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true }
-          )}
+          onScroll={eventoRolagem(scrollY)}
           scrollEventThrottle={16}
         >
           <Animated.View style={{ opacity: fadeAnim, transform: [{ translateY: slideAnimUp }] }}>
@@ -343,15 +343,16 @@ const styles = StyleSheet.create({
   subtotalPessoaTexto: { color: '#8A8D98', fontSize: 14, fontWeight: '600', textTransform: 'uppercase' },
   subtotalPessoaValor: { fontSize: 22, fontWeight: '900' },
 
-  totalCard: { backgroundColor: '#00E67610', borderRadius: 24, padding: 25, marginBottom: 20, borderWidth: 1, borderColor: '#00E67640', alignItems: 'center', shadowColor: '#00E676', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 4 },
-  totalHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
-  totalLabel: { color: '#00E676', fontSize: 14, fontWeight: 'bold', marginLeft: 8, textTransform: 'uppercase', letterSpacing: 1 },
-  totalValue: { color: '#00E676', fontSize: 36, fontWeight: '900' },
+  // Fundo sólido (sem transparência nem sombra colorida: no celular isso virava um verde sujo e manchado)
+  totalCard: { backgroundColor: '#13201A', borderRadius: 24, paddingVertical: 22, paddingHorizontal: 18, marginBottom: 20, borderWidth: 1, borderColor: '#1F4A33', alignItems: 'center', overflow: 'hidden' },
+  totalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginBottom: 10, maxWidth: '100%' },
+  totalLabel: { color: '#7FE3A9', fontSize: 12, fontWeight: 'bold', marginLeft: 8, textTransform: 'uppercase', letterSpacing: 0.8, flexShrink: 1, textAlign: 'center' },
+  totalValue: { color: '#00E676', fontSize: 34, fontWeight: '900' },
 
-  totalBreakdownContainer: { width: '100%', marginTop: 20, paddingTop: 20, borderTopWidth: 1, borderTopColor: '#00E67630' },
-  breakdownTitle: { color: '#00E676', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', marginBottom: 15, letterSpacing: 1.5, opacity: 0.8 },
+  totalBreakdownContainer: { width: '100%', marginTop: 18, paddingTop: 18, borderTopWidth: 1, borderTopColor: '#1F4A33' },
+  breakdownTitle: { color: '#7FE3A9', fontSize: 11, fontWeight: '900', textTransform: 'uppercase', textAlign: 'center', marginBottom: 15, letterSpacing: 1.5 },
   breakdownRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
-  breakdownLabel: { color: '#00E676', fontSize: 12, fontWeight: '600', textTransform: 'uppercase' },
+  breakdownLabel: { color: '#B9C4BE', fontSize: 12, fontWeight: '600', textTransform: 'uppercase', flexShrink: 1, paddingRight: 8 },
   breakdownValue: { color: '#F4F5F7', fontSize: 15, fontWeight: 'bold' },
 
   saveButton: { flexDirection: 'row', backgroundColor: '#D4FF3A', height: 60, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginTop: 5 },

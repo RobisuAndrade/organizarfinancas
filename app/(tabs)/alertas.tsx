@@ -1,8 +1,8 @@
-import { useRouter } from 'expo-router';
 import { TelaAlertas } from '../../components/AlertasPromo';
+import { useVoltar } from '../../hooks/useVoltar';
 
 // Tela cheia dos alertas de promoção (ícone de sino na barra de baixo).
 export default function Alertas() {
-  const router = useRouter();
-  return <TelaAlertas aoVoltar={() => (router.canGoBack() ? router.back() : router.replace('/'))} />;
+  const voltar = useVoltar();
+  return <TelaAlertas aoVoltar={voltar} />;
 }

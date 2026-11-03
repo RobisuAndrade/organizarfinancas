@@ -1,9 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import { Tabs, useRouter } from 'expo-router';
-import { useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Keyboard, Modal, Platform, Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { barraOculta, reiniciarBarra } from '../../components/BarraScroll';
+import CartaoAparece from '../../components/CartaoAparece';
 import ModalListaCompras from '../../components/ModalListaCompras';
 import ModalNotaFiscal from '../../components/ModalNotaFiscal';
 import { IconeAjustes, IconeCalculadora } from '../../components/IconesCustom';
@@ -19,7 +21,7 @@ const ABAS = [
   { tipo: 'direto', nome: 'index', titulo: 'Início', icone: 'home' },
   { tipo: 'direto', nome: 'resumo', titulo: 'Visão Geral', icone: 'activity' },
   { tipo: 'direto', nome: 'gastos', titulo: 'Gestão de Gastos', icone: 'file-text' },
-  { tipo: 'grupo', chave: 'comprasMercado' as TipoEscolhaRapida, titulo: 'Compras e Mercado', icone: 'shopping-bag' },
+  { tipo: 'grupo', chave: 'comprasMercado' as TipoEscolhaRapida, titulo: 'Compras e Supermercado', icone: 'shopping-bag' },
   { tipo: 'grupo', chave: 'salariosMetas' as TipoEscolhaRapida, titulo: 'Salários e Metas', icone: 'dollar-sign' },
   { tipo: 'direto', nome: 'alertas', titulo: 'Alertas de promoção', icone: 'bell' },
 ] as const;
@@ -31,10 +33,32 @@ function BarraInferior({ state, navigation, abrirEscolha }: any) {
   const insets = useSafeAreaInsets();
   const rotaAtual = state.routes[state.index].name;
 
-  if (rotaAtual === 'index') return null;
+  // volta a mostrar a barra ao trocar de tela
+  useEffect(() => {
+    reiniciarBarra();
+  }, [rotaAtual]);
+
+  // com o teclado aberto a barra sai de cima do campo que está sendo digitado
+  const [tecladoAberto, setTecladoAberto] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const a = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setTecladoAberto(true));
+    const b = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setTecladoAberto(false));
+    return () => {
+      a.remove();
+      b.remove();
+    };
+  }, []);
+
+  if (rotaAtual === 'index' || tecladoAberto) return null;
+
+  const descer = barraOculta.interpolate({ inputRange: [0, 1], outputRange: [0, 90 + insets.bottom] });
 
   return (
-    <View style={[styles.barraWrapper, { bottom: insets.bottom + 14 }]} pointerEvents="box-none">
+    <Animated.View
+      style={[styles.barraWrapper, { bottom: insets.bottom + 14, transform: [{ translateY: descer }] }]}
+      pointerEvents="box-none"
+    >
       <View style={styles.barra}>
         {ABAS.map((aba) => {
           const ativa = aba.tipo === 'direto'
@@ -57,7 +81,7 @@ function BarraInferior({ state, navigation, abrirEscolha }: any) {
           );
         })}
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
@@ -168,7 +192,7 @@ export default function TabLayout() {
         <Tabs
           tabBar={(props) => <BarraInferior {...props} abrirEscolha={setEscolhaAberta} />}
           backBehavior="history"
-          screenOptions={{ headerShown: false }}
+          screenOptions={{ headerShown: false, title: 'ROVAN' }}
         >
           <Tabs.Screen name="index" />
           <Tabs.Screen name="resumo" />
@@ -196,7 +220,8 @@ export default function TabLayout() {
         {/* PÍLULA DE ESCOLHA RÁPIDA (compartilhada entre a Home e a barra debaixo) */}
         <Modal visible={!!escolha} transparent animationType="fade" onRequestClose={() => setEscolhaAberta(null)}>
           <Pressable style={styles.modalOverlay} onPress={() => setEscolhaAberta(null)}>
-            <Pressable style={styles.modalCard} onPress={() => {}}>
+            <CartaoAparece style={styles.modalCard}>
+            <Pressable onPress={() => {}}>
               <Text style={styles.modalTitulo}>{escolha?.titulo}</Text>
               <Text style={styles.modalSubtitulo}>Qual você quer abrir?</Text>
 
@@ -217,6 +242,7 @@ export default function TabLayout() {
                 <Text style={styles.modalCancelarTexto}>Cancelar</Text>
               </TouchableOpacity>
             </Pressable>
+            </CartaoAparece>
           </Pressable>
         </Modal>
       </View>
@@ -298,14 +324,16 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.75)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
   },
   modalCard: {
     backgroundColor: Colors.surface,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderRadius: 28,
     padding: 25,
-    paddingBottom: 40,
+    width: '100%',
+    maxWidth: 440,
     borderWidth: 1,
     borderColor: Colors.surface3,
   },

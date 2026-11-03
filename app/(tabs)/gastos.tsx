@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useVoltar } from '../../hooks/useVoltar';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -7,6 +8,7 @@ import { Animated, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, 
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
 import { db } from '../../firebaseConfig';
 import AvoidTeclado, { ScrollTeclado } from '../../components/AvoidTeclado';
+import { eventoRolagem } from '../../components/BarraScroll';
 import { DialogoNoModal, useDialogo } from '../../hooks/useDialogo';
 
 // ----------------------------------------------------
@@ -45,6 +47,7 @@ import { converterParaNumero, formatarDataInput, formatarInputMoeda, formatarMoe
 export default function GestaoGastos() {
   const { avisar, confirmar } = useDialogo();
   const router = useRouter();
+  const voltar = useVoltar();
   const params = useLocalSearchParams();
 
   const [listaGastos, setListaGastos] = useState<any[]>([]);
@@ -225,15 +228,12 @@ export default function GestaoGastos() {
         
         {/* ÁREA DE ROLAGEM COM A LISTA */}
         <Animated.View style={[styles.listArea, { opacity: fadeAnim, transform: [{ translateY: slideAnimUp }] }]}>
-          <Animated.FlatList 
+          <Animated.FlatList keyboardShouldPersistTaps="handled" 
             data={gastosFiltrados}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingTop: 130, paddingBottom: 170, flexGrow: 1 }}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true }
-            )}
+            onScroll={eventoRolagem(scrollY)}
             scrollEventThrottle={16}
             
             ListHeaderComponent={
@@ -326,7 +326,7 @@ export default function GestaoGastos() {
         {/* CABEÇALHO FLUTUANTE (ANIMAÇÃO) */}
         <Animated.View style={[styles.headerFlutuante, { transform: [{ translateY: headerTranslateY }] }]}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backButton}>
+            <TouchableOpacity onPress={voltar} style={styles.backButton}>
               <Feather name="arrow-left" size={24} color="#D4FF3A" />
             </TouchableOpacity>
             <View>
@@ -411,7 +411,7 @@ export default function GestaoGastos() {
                   )}
 
                   <Text style={styles.inputLabelMicro}>Método de Pagamento</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                  <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
                     {METODOS_PAGAMENTO.map(metodo => (
                       <TouchableOpacity key={metodo} style={[styles.tagNormal, pagamento === metodo && { backgroundColor: CORES_BANCOS[metodo], borderColor: CORES_BANCOS[metodo] }]} onPress={() => setPagamento(metodo)}>
                         <Text style={[styles.tagTexto, pagamento === metodo && styles.tagTextoAtiva]}>{metodo}</Text>
@@ -420,7 +420,7 @@ export default function GestaoGastos() {
                   </ScrollView>
 
                   <Text style={styles.inputLabelMicro}>Categoria</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 25 }}>
+                  <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 25 }}>
                     {CATEGORIAS.map(cat => (
                       <TouchableOpacity key={cat} style={[styles.tagNormal, categoria === cat && { backgroundColor: COR_PADRAO_TAGS, borderColor: COR_PADRAO_TAGS }]} onPress={() => setCategoria(cat)}>
                         <Text style={[styles.tagTexto, categoria === cat && styles.tagTextoAtiva]}>{cat}</Text>
@@ -454,7 +454,7 @@ export default function GestaoGastos() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 30 }}>
                 
                 {/* 1. Status do Pagamento */}
                 <Text style={styles.inputLabelMicro}>Status do Pagamento</Text>

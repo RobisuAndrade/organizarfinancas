@@ -355,7 +355,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
         itens: dadosNota.produtos,
       });
 
-      avisar('Pronto!', 'Compra registrada em Mercado.', 'sucesso');
+      avisar('Pronto!', 'Compra registrada em Compras Supermercado.', 'sucesso');
       resetarEFechar();
     } catch (error) {
       console.error('Erro ao salvar:', error);
@@ -389,9 +389,9 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
       </View>
     </Modal>
 
-    <Modal visible={visivel && etapa !== 'camera'} animationType="slide" transparent>
+    <Modal visible={visivel && etapa !== 'camera'} animationType="fade" transparent onRequestClose={resetarEFechar}>
       <View style={styles.overlay}>
-        <AvoidTeclado style={{ justifyContent: 'flex-end' }}>
+        <AvoidTeclado style={{ justifyContent: 'center' }}>
         <SafeAreaView style={styles.container}>
           <View style={styles.header}>
             <Text style={styles.titulo}>
@@ -544,7 +544,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
                 </View>
               )}
 
-              <FlatList
+              <FlatList keyboardShouldPersistTaps="handled"
                 data={dadosNota.produtos}
                 keyExtractor={(_, index) => index.toString()}
                 style={{ flex: 1 }}
@@ -567,7 +567,7 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
                 }}
               />
 
-              <Text style={styles.dicaTexto}>Você pode ajustar as categorias depois, na tela Mercado.</Text>
+              <Text style={styles.dicaTexto}>Você pode ajustar as categorias depois, na tela Compras Supermercado.</Text>
 
               <TouchableOpacity style={styles.botaoSalvar} onPress={salvarNoHistorico} disabled={salvando}>
                 {salvando ? (
@@ -592,8 +592,8 @@ export default function ModalNotaFiscal({ visivel, fechar }: { visivel: boolean;
 
 const styles = StyleSheet.create({
   fundoScanner: { flex: 1, backgroundColor: 'rgba(11,11,15,0.97)' },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'flex-end' },
-  container: { flex: 1, backgroundColor: '#1C1D25', marginTop: 50, borderTopLeftRadius: 35, borderTopRightRadius: 35, padding: 20, borderWidth: 1, borderColor: '#2A2B34' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center' },
+  container: { flex: 1, backgroundColor: '#1C1D25', marginVertical: 40, marginHorizontal: 14, width: '92%', maxWidth: 560, alignSelf: 'center', borderRadius: 30, padding: 20, borderWidth: 1, borderColor: '#2A2B34' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   titulo: { color: '#F4F5F7', fontSize: 16, fontWeight: '900', textTransform: 'uppercase', letterSpacing: 1 },
   closeBtn: { backgroundColor: '#0B0B0F', padding: 8, borderRadius: 12, borderWidth: 1, borderColor: '#2A2B34' },

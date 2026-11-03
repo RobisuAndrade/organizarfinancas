@@ -16,11 +16,11 @@ export type OpcaoEscolha = {
 
 export const ESCOLHAS: Record<TipoEscolhaRapida, { titulo: string; rotas: string[]; opcoes: OpcaoEscolha[] }> = {
   comprasMercado: {
-    titulo: 'Compras & Mercado',
+    titulo: 'Compras & Supermercado',
     rotas: ['compras', 'mercado'],
     opcoes: [
       { titulo: 'Lista de Compras', subtitulo: 'O que falta comprar', icone: 'shopping-bag', rota: '/compras', cor: Colors.lime },
-      { titulo: 'Notas & Mercado', subtitulo: 'Histórico de preços', icone: 'shopping-cart', rota: '/mercado', cor: Colors.lavender },
+      { titulo: 'Compras Supermercado', subtitulo: 'Notas fiscais e histórico de preços', icone: 'shopping-cart', rota: '/mercado', cor: Colors.lavender },
     ],
   },
   salariosMetas: {

@@ -934,7 +934,7 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
               styles.sheet,
               telaCheia && styles.sheetCheia,
               telaCheia && { height: Math.max(300, alturaTela - alturaTeclado), maxHeight: Math.max(300, alturaTela - alturaTeclado), flexGrow: 0, flexShrink: 0 },
-              { opacity: entrada.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.9, 1] }), transform: [{ translateY: entrada.interpolate({ inputRange: [0, 1], outputRange: [alturaTela * 0.35, 0] }) }] },
+              { opacity: entrada.interpolate({ inputRange: [0, 0.5, 1], outputRange: [0, 0.9, 1] }), transform: [{ scale: entrada.interpolate({ inputRange: [0, 1], outputRange: [telaCheia ? 1 : 0.9, 1] }) }] },
             ]}
           >
             {criando ? (
@@ -1324,26 +1324,25 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
 }
 
 const styles = StyleSheet.create({
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.85)', justifyContent: 'center' },
   sheet: {
     backgroundColor: COR.card,
-    borderTopLeftRadius: 30,
-    borderTopRightRadius: 30,
+    borderRadius: 28,
     padding: 22,
     paddingBottom: Platform.OS === 'ios' ? 34 : 22,
     borderWidth: 1,
     borderColor: COR.borda,
-    maxHeight: '90%',
-    width: '100%',
+    maxHeight: '86%',
+    width: '92%',
     maxWidth: 700,
     alignSelf: 'center',
   },
   sheetCheia: {
     height: '100%',
     maxHeight: '100%',
+    width: '100%',
     maxWidth: 900,
-    borderTopLeftRadius: 0,
-    borderTopRightRadius: 0,
+    borderRadius: 0,
     borderWidth: 0,
     paddingTop: (Platform.OS === 'ios' ? 56 : (StatusBar.currentHeight || 24) + 12),
   },

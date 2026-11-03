@@ -235,7 +235,7 @@ export default function Home() {
                 <View style={[styles.bentoIconCircle, { backgroundColor: Colors.lime + '22' }]}>
                   <Feather name="shopping-bag" size={20} color={Colors.lime} />
                 </View>
-                <Text style={styles.bentoTituloMedio}>Compras &{"\n"}Mercado</Text>
+                <Text style={styles.bentoTituloMedio}>Compras &{"\n"}Supermercado</Text>
               </TouchableOpacity>
             </View>
 

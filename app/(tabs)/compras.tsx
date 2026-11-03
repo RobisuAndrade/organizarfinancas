@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useVoltar } from '../../hooks/useVoltar';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
@@ -9,6 +10,7 @@ import BotaoPadrao from '../../components/BotaoPadrao';
 import { db } from '../../firebaseConfig';
 import AbaPrecos, { SegmentoAbas } from '../../components/AbaPrecos';
 import AvoidTeclado, { ScrollTeclado } from '../../components/AvoidTeclado';
+import { eventoRolagem } from '../../components/BarraScroll';
 
 // ----------------------------------------------------
 // OPÇÕES DE CATEGORIZAÇÃO (COMPRAS)
@@ -50,6 +52,7 @@ import { converterParaNumero, formatarData, formatarDataInput, formatarInputMoed
 
 export default function Compras() {
   const router = useRouter();
+  const voltar = useVoltar();
   const params = useLocalSearchParams();
 
   const [aba, setAba] = useState<'compras' | 'precos'>('compras');
@@ -383,15 +386,12 @@ export default function Compras() {
         
         {/* ÁREA DE ROLAGEM COM ANIMATED FLATLIST */}
         <Animated.View style={[styles.listArea, aba !== 'compras' && { display: 'none' }, { opacity: fadeAnim, transform: [{ translateY: slideAnimUp }] }]}>
-          <Animated.FlatList 
+          <Animated.FlatList keyboardShouldPersistTaps="handled" 
             data={listaFiltrada}
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingTop: 140, paddingBottom: 170, flexGrow: 1 }}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: true }
-            )}
+            onScroll={eventoRolagem(scrollY)}
             scrollEventThrottle={16}
             
             ListHeaderComponent={
@@ -424,7 +424,7 @@ export default function Compras() {
                 </View>
 
                 {/* BOTÃO DE AÇÃO E ABAS RÁPIDAS */}
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickTabsScroll}>
+                <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.quickTabsScroll}>
                   <TouchableOpacity activeOpacity={0.8} style={styles.quickAddBtn} onPress={() => setFormAberto(true)}>
                     <Feather name="plus" size={16} color="#0B0B0F" style={{marginRight: 4}}/>
                     <Text style={styles.quickAddText}>Novo</Text>
@@ -551,7 +551,7 @@ export default function Compras() {
         {/* CABEÇALHO FLUTUANTE */}
         <Animated.View style={[styles.headerFlutuante, { transform: [{ translateY: headerTranslateY }] }]}>
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backButton}>
+            <TouchableOpacity onPress={voltar} style={styles.backButton}>
               <Feather name="arrow-left" size={24} color="#D4FF3A" />
             </TouchableOpacity>
             <View>
@@ -612,7 +612,7 @@ export default function Compras() {
                   {renderizarEstrelas(prioridade, true, setPrioridade)}
                   
                   <Text style={styles.label}>Tipo de Compra</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
+                  <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
                     {TIPOS_COMPRA.map((t) => {
                       const isActive = tipo === t;
                       const infoTipo = ESTILO_TIPO[t];
@@ -626,7 +626,7 @@ export default function Compras() {
                   </ScrollView>
 
                   <Text style={styles.label}>Para qual cômodo?</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
+                  <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={styles.comodosScroll}>
                     {COMODOS.map((c) => (
                       <TouchableOpacity key={c} style={[styles.comodoTag, comodo === c && styles.comodoTagActive]} onPress={() => setComodo(c)}>
                         <Text style={[styles.comodoTagText, comodo === c && styles.comodoTagTextActive]}>{c}</Text>
@@ -705,7 +705,7 @@ export default function Compras() {
                   )}
 
                   <Text style={styles.inputLabelMicro}>Como pagou?</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+                  <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
                     {METODOS_PAGAMENTO.map(metodo => (
                       <TouchableOpacity key={metodo} style={[styles.tagNormal, chkPgto === metodo && { backgroundColor: CORES_BANCOS[metodo], borderColor: CORES_BANCOS[metodo] }]} onPress={() => setChkPgto(metodo)}>
                         <Text style={[styles.tagTexto, chkPgto === metodo && styles.tagTextoAtiva]}>{metodo}</Text>
@@ -714,7 +714,7 @@ export default function Compras() {
                   </ScrollView>
 
                   <Text style={styles.inputLabelMicro}>Categoria do Gasto</Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 25 }}>
+                  <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 25 }}>
                     {CATEGORIAS_GASTOS.map(cat => (
                       <TouchableOpacity key={cat} style={[styles.tagNormal, chkCat === cat && { backgroundColor: '#00E676', borderColor: '#00E676' }]} onPress={() => setChkCat(cat)}>
                         <Text style={[styles.tagTexto, chkCat === cat && { color: '#0B0B0F' }]}>{cat}</Text>
@@ -750,7 +750,7 @@ export default function Compras() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
                 
                 <Text style={styles.inputLabelMicro}>Status da Compra</Text>
                 <View style={styles.chipsWrap}>

@@ -1,9 +1,13 @@
 import { Feather } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useVoltar } from '../../hooks/useVoltar';
 import { onValue, ref, remove, update } from 'firebase/database';
 import { useEffect, useMemo, useState } from 'react';
 import { Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { aoRolarBarra } from '../../components/BarraScroll';
 import LeitorCodigoBarras from '../../components/LeitorCodigoBarras';
+import TabelaRegistros from '../../components/TabelaRegistros';
+import TelaNotaRegistros from '../../components/TelaNotaRegistros';
 import { db } from '../../firebaseConfig';
 import { DialogoNoModal, useDialogo } from '../../hooks/useDialogo';
 import { CATEGORIAS_MERCADO, chaveProduto, infoCategoria } from '../../utils/categoriasMercado';
@@ -51,12 +55,9 @@ type Nota = {
 // Lista com tipo explícito (evita o erro de "any" implícito)
 const LISTA_CATEGORIAS: Categoria[] = CATEGORIAS_MERCADO as Categoria[];
 
-// Ordem pedida: PRODUTO, QTD, UNIT, CATEGORIA, MERCADO, DATA, TOTAL
-const LARGURAS = { produto: 170, qtd: 55, unit: 85, categoria: 140, mercado: 130, data: 80, total: 105 };
-const LARGURA_TABELA = LARGURAS.produto + LARGURAS.qtd + LARGURAS.unit + LARGURAS.categoria + LARGURAS.mercado + LARGURAS.data + LARGURAS.total;
-
 export default function Mercado() {
   const router = useRouter();
+  const voltar = useVoltar();
   const { avisar, confirmar } = useDialogo();
 
   const [notas, setNotas] = useState<any>({});
@@ -68,6 +69,7 @@ export default function Mercado() {
   const [renomeando, setRenomeando] = useState(false);
   const [nomeEditado, setNomeEditado] = useState('');
   const [scannerAberto, setScannerAberto] = useState(false);
+  const [notaAberta, setNotaAberta] = useState<{ notaId: string; mercado: string; data: string } | null>(null);
 
   useEffect(() => {
     const unsub = onValue(ref(db, 'mercado/notas'), (snap) => setNotas(snap.val() || {}));
@@ -217,24 +219,30 @@ export default function Mercado() {
     }
   };
 
-  // Vai pra visão de Registros já filtrada só pro mercado dessa nota
-  const verRegistrosDoMercado = () => {
+  // Abre a tela só com os produtos dessa nota (sem mexer na busca)
+  const verRegistrosDaNota = () => {
     if (!notaDetalhe) return;
-    setBusca(notaDetalhe.mercado);
+    setNotaAberta({ notaId: notaDetalhe.notaId, mercado: notaDetalhe.mercado, data: notaDetalhe.data });
     setNotaDetalhe(null);
-    setModo('registros');
+    setRenomeando(false);
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scroll}
+        onScroll={(e) => aoRolarBarra(e.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={16}
+      >
         {/* CABEÇALHO */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backButton}>
+          <TouchableOpacity onPress={voltar} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#D4FF3A" />
           </TouchableOpacity>
           <View>
-            <Text style={styles.titulo}>Compras de Mercado</Text>
+            <Text style={styles.titulo}>Compras Supermercado</Text>
             <Text style={styles.subtitulo}>Tudo que lemos das notas fiscais</Text>
           </View>
         </View>
@@ -310,7 +318,7 @@ export default function Mercado() {
         )}
 
         {/* FILTRO POR CATEGORIA */}
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
+        <ScrollView keyboardShouldPersistTaps="handled" horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 15 }}>
           <TouchableOpacity
             style={[styles.chip, !catFiltro && styles.chipAtivo]}
             onPress={() => setCatFiltro(null)}
@@ -378,74 +386,9 @@ export default function Mercado() {
         ) : modo === 'registros' ? (
           <>
             <Text style={styles.dica}>
-              Segure uma linha (ou toque na categoria) para mudar a categoria • Deslize para o lado para ver tudo
+              Segure uma linha (ou toque na categoria) para mudar a categoria • Use + e − para ajustar o zoom
             </Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={{ width: LARGURA_TABELA }}>
-                {/* Cabeçalho da tabela */}
-                <View style={styles.tabelaHeader}>
-                  <Text style={[styles.th, { width: LARGURAS.produto }]}>Produto</Text>
-                  <Text style={[styles.th, { width: LARGURAS.qtd }]}>Qtd</Text>
-                  <Text style={[styles.th, { width: LARGURAS.unit }]}>Unit.</Text>
-                  <Text style={[styles.th, { width: LARGURAS.categoria }]}>Categoria</Text>
-                  <Text style={[styles.th, { width: LARGURAS.mercado }]}>Mercado</Text>
-                  <Text style={[styles.th, { width: LARGURAS.data }]}>Data</Text>
-                  <Text style={[styles.th, { width: LARGURAS.total, textAlign: 'right' }]}>Total</Text>
-                </View>
-
-                {filtrados.slice(0, 300).map((r: Registro, i: number) => {
-                  const cat: Categoria = infoCategoria(r.categoria);
-                  return (
-                    <TouchableOpacity
-                      key={`${r.notaId}-${r.idx}`}
-                      activeOpacity={0.7}
-                      delayLongPress={350}
-                      onLongPress={() => setEditando(r)}
-                      style={[styles.tr, i % 2 === 0 && styles.trZebra]}
-                    >
-                      <Text
-                        style={[styles.td, { width: LARGURAS.produto, fontWeight: 'bold', color: '#F4F5F7' }]}
-                        numberOfLines={2}
-                      >
-                        {r.nome}
-                      </Text>
-                      <Text style={[styles.td, { width: LARGURAS.qtd }]} numberOfLines={1}>{r.qtd} {r.unidade}</Text>
-                      <Text
-                        style={[styles.td, { width: LARGURAS.unit }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.75}
-                      >
-                        {formatarMoeda(r.valorUnitario)}
-                      </Text>
-                      <View style={{ width: LARGURAS.categoria }}>
-                        <TouchableOpacity
-                          onPress={() => setEditando(r)}
-                          style={[styles.tagCat, { borderColor: cat.cor, backgroundColor: `${cat.cor}20` }]}
-                        >
-                          <Text style={[styles.tagCatTexto, { color: cat.cor }]} numberOfLines={1}>
-                            {cat.emoji} {cat.nome}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      <Text style={[styles.td, { width: LARGURAS.mercado }]} numberOfLines={2}>{r.mercado}</Text>
-                      <Text style={[styles.td, { width: LARGURAS.data }]} numberOfLines={1}>{r.data}</Text>
-                      <Text
-                        style={[styles.td, { width: LARGURAS.total, textAlign: 'right', color: '#00E676', fontWeight: 'bold' }]}
-                        numberOfLines={1}
-                        adjustsFontSizeToFit
-                        minimumFontScale={0.75}
-                      >
-                        {formatarMoeda(r.valorTotal)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </ScrollView>
-            {filtrados.length > 300 && (
-              <Text style={styles.dica}>Mostrando os 300 mais recentes. Use a busca para achar os outros.</Text>
-            )}
+            <TabelaRegistros linhas={filtrados} mostrarOrigem aoEditar={setEditando} />
           </>
         ) : (
           <>
@@ -552,13 +495,13 @@ export default function Mercado() {
 
             <View style={styles.linhaTotalDetalhe}>
               <Text style={styles.modalTotalDetalhe}>{formatarMoeda(notaDetalhe?.total || 0)}</Text>
-              <TouchableOpacity style={styles.btnVerRegistros} onPress={verRegistrosDoMercado}>
+              <TouchableOpacity style={styles.btnVerRegistros} onPress={verRegistrosDaNota}>
                 <Feather name="bar-chart-2" size={13} color="#0B0B0F" style={{ marginRight: 6 }} />
                 <Text style={styles.btnVerRegistrosTexto}>Ver Registros</Text>
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 320, marginTop: 10 }} showsVerticalScrollIndicator={false}>
+            <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320, marginTop: 10 }} showsVerticalScrollIndicator={false}>
               {notaDetalhe?.itens.map((it: Registro) => {
                 const cat = infoCategoria(it.categoria);
                 return (
@@ -631,6 +574,18 @@ export default function Mercado() {
         </View>
         <DialogoNoModal />
       </Modal>
+
+      {/* TELA SÓ COM OS PRODUTOS DE UMA NOTA */}
+      {notaAberta && (
+        <TelaNotaRegistros
+          mercado={notaAberta.mercado}
+          data={notaAberta.data}
+          linhas={registros.filter((r: Registro) => r.notaId === notaAberta.notaId)}
+          outras={registros.filter((r: Registro) => r.notaId !== notaAberta.notaId)}
+          aoFechar={() => setNotaAberta(null)}
+          aoEditar={setEditando}
+        />
+      )}
     </SafeAreaView>
   );
 }

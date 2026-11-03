@@ -18,6 +18,7 @@ import { db } from '../firebaseConfig';
 import { useDialogo } from '../hooks/useDialogo';
 import AvoidTeclado, { ScrollTeclado, useAlinharAoTeclado } from './AvoidTeclado';
 import CampoSuave from './CampoSuave';
+import { eventoRolagem } from './BarraScroll';
 import { COR } from './corLista';
 
 type Duracao = '24h' | '7d' | '14d' | 'sempre';
@@ -543,7 +544,7 @@ export function TelaAlertas({ aoVoltar }: { aoVoltar: () => void }) {
             showsVerticalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             contentContainerStyle={{ paddingTop: 120, paddingBottom: 170, paddingHorizontal: 20 }}
-            onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+            onScroll={eventoRolagem(scrollY)}
             scrollEventThrottle={16}
             onTouchEnd={onTouchEnd}
           >
