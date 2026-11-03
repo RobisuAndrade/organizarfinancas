@@ -1,7 +1,7 @@
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { onValue, push, ref, remove, set, update } from 'firebase/database';
-import { ComponentProps, ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
   Easing,
@@ -15,7 +15,6 @@ import {
   StatusBar,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -446,9 +445,6 @@ function ItemLinha({
         </TouchableOpacity>
         <TouchableOpacity onPress={aoEditar} style={styles.btnLixo}>
           <Feather name="edit-2" size={16} color={COR.lima} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={aoAcompanhar} style={styles.btnLixo}>
-          <Feather name="trending-down" size={16} color={item.acomp ? COR.lavanda : COR.cinza} />
         </TouchableOpacity>
       </View>
     </Animated.View>
@@ -904,11 +900,6 @@ export default function ModalListaCompras({ visivel, fechar }: { visivel: boolea
     } else {
       setBuscaAberta(true);
     }
-  };
-
-  const alternarAdd = () => {
-    suavizarLayout();
-    setAddAberto((v) => !v);
   };
 
   const escolherFiltro = (f: string) => {

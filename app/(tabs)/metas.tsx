@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useVoltar } from '../../hooks/useVoltar';
 import { useEffect, useRef, useState } from 'react';
 import { aoRolarBarra } from '../../components/BarraScroll';
@@ -22,7 +21,6 @@ const META_OBJETIVO = 20000;
 import { converterParaNumero, formatarData, formatarInputMoeda, formatarMoeda } from '../../utils/formatadores';
 
 export default function NossasMetas() {
-  const router = useRouter();
   const voltar = useVoltar();
   const { avisar } = useDialogo();
 

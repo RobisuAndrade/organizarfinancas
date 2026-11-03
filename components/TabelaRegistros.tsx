@@ -32,7 +32,7 @@ type Props = {
   limite?: number;
 };
 
-export default function TabelaRegistros({ linhas, mostrarOrigem, aoEditar, limite = 300 }: Props) {
+function TabelaRegistros({ linhas, mostrarOrigem, aoEditar, limite = 300 }: Props) {
   const { width } = useWindowDimensions();
   const [zoomManual, setZoomManual] = useState<number | null>(null);
 
@@ -134,6 +134,9 @@ export default function TabelaRegistros({ linhas, mostrarOrigem, aoEditar, limit
     </View>
   );
 }
+
+// evita redesenhar centenas de linhas quando só o cabeçalho da tela muda
+export default React.memo(TabelaRegistros);
 
 const styles = StyleSheet.create({
   zoomLinha: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },

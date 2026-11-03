@@ -2,7 +2,7 @@ import { Feather } from '@expo/vector-icons';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
 import AvoidTeclado, { ScrollTeclado } from './AvoidTeclado';
-import { ActivityIndicator, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../constants/theme';
 import { auth } from '../firebaseConfig';
 

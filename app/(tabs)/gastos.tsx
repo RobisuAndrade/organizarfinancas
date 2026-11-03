@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useVoltar } from '../../hooks/useVoltar';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -46,7 +46,6 @@ import { converterParaNumero, formatarDataInput, formatarInputMoeda, formatarMoe
 
 export default function GestaoGastos() {
   const { avisar, confirmar } = useDialogo();
-  const router = useRouter();
   const voltar = useVoltar();
   const params = useLocalSearchParams();
 

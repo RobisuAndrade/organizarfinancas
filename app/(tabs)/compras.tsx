@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams } from 'expo-router';
 import { useVoltar } from '../../hooks/useVoltar';
 import { useEffect, useRef, useState } from 'react';
 import { Animated, Dimensions, Linking, Modal, Platform, SafeAreaView, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -51,7 +51,6 @@ const CORES_BANCOS: { [key: string]: string } = {
 import { converterParaNumero, formatarData, formatarDataInput, formatarInputMoeda, formatarMoeda, mascarar } from '../../utils/formatadores';
 
 export default function Compras() {
-  const router = useRouter();
   const voltar = useVoltar();
   const params = useLocalSearchParams();
 
@@ -197,7 +196,6 @@ export default function Compras() {
     setModalFiltroAberto(true);
     Animated.timing(slideAnimFiltro, { toValue: 0, duration: 300, useNativeDriver: true }).start();
   };
-  const fecharFiltros = () => Animated.timing(slideAnimFiltro, { toValue: Dimensions.get('window').width, duration: 300, useNativeDriver: true }).start(() => setModalFiltroAberto(false));
 
   const preencherDataHojeCheckout = () => {
     const hoje = new Date();
@@ -205,13 +203,6 @@ export default function Compras() {
     const mm = String(hoje.getMonth() + 1).padStart(2, '0');
     const yyyy = hoje.getFullYear();
     setChkData(`${dd}/${mm}/${yyyy}`);
-  };
-
-  const preencherDataHojeEdicao = () => {
-    const hoje = new Date();
-    const dd = String(hoje.getDate()).padStart(2, '0');
-    const mm = String(hoje.getMonth() + 1).padStart(2, '0');
-    const yyyy = hoje.getFullYear();
   };
 
   const abrirEdicao = (item: any) => {

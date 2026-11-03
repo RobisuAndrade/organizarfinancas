@@ -7,6 +7,7 @@ const CURSO = 90; // quanto precisa rolar para a barra sumir por completo
 export const barraOculta = new Animated.Value(0); // 0 = visível, 1 = escondida
 let ultimoY: number | null = null;
 let acumulado = 0;
+let ultimoValor = 0;
 
 export function aoRolarBarra(y: number) {
   if (ultimoY === null) {
@@ -17,12 +18,17 @@ export function aoRolarBarra(y: number) {
   ultimoY = y;
   if (y <= 0) acumulado = 0;
   else acumulado = Math.min(CURSO, Math.max(0, acumulado + delta));
-  barraOculta.setValue(acumulado / CURSO);
+  const novo = acumulado / CURSO;
+  if (novo !== ultimoValor) {
+    ultimoValor = novo;
+    barraOculta.setValue(novo);
+  }
 }
 
 export function reiniciarBarra() {
   ultimoY = null;
   acumulado = 0;
+  ultimoValor = 0;
   barraOculta.setValue(0);
 }
 

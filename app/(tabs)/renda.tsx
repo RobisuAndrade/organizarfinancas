@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useVoltar } from '../../hooks/useVoltar';
 import React, { useEffect, useRef, useState } from 'react';
 import { Animated, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -30,7 +29,6 @@ const formatarNomeMes = (anoMes: string) => {
 };
 
 export default function Salarios() {
-  const router = useRouter();
   const voltar = useVoltar();
   const { avisar } = useDialogo();
 

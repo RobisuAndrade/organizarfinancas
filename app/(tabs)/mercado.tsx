@@ -1,5 +1,4 @@
 import { Feather } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
 import { useVoltar } from '../../hooks/useVoltar';
 import { onValue, ref, remove, update } from 'firebase/database';
 import { useEffect, useMemo, useState } from 'react';
@@ -56,7 +55,6 @@ type Nota = {
 const LISTA_CATEGORIAS: Categoria[] = CATEGORIAS_MERCADO as Categoria[];
 
 export default function Mercado() {
-  const router = useRouter();
   const voltar = useVoltar();
   const { avisar, confirmar } = useDialogo();
 
@@ -503,7 +501,6 @@ export default function Mercado() {
 
             <ScrollView keyboardShouldPersistTaps="handled" style={{ maxHeight: 320, marginTop: 10 }} showsVerticalScrollIndicator={false}>
               {notaDetalhe?.itens.map((it: Registro) => {
-                const cat = infoCategoria(it.categoria);
                 return (
                   <View key={it.idx} style={styles.itemDetalhe}>
                     <View style={{ flex: 1, paddingRight: 10 }}>
