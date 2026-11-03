@@ -39,8 +39,16 @@ if (faltando.length > 0) {
   console.error('Copie "config-exemplo.txt" para ".env" e preencha.');
   process.exit(2);
 }
-if (!fs.existsSync(ARQUIVO_CHAVE)) {
+let infoChave = null;
+try {
+  infoChave = fs.statSync(ARQUIVO_CHAVE);
+} catch {
   console.error(`Não achei o arquivo da chave do Firebase em: ${ARQUIVO_CHAVE}`);
+  process.exit(2);
+}
+if (infoChave.isDirectory()) {
+  console.error(`O caminho em FIREBASE_SERVICE_ACCOUNT_FILE aponta para uma PASTA: ${ARQUIVO_CHAVE}`);
+  console.error('Coloque o caminho completo ATÉ o arquivo .json, por exemplo: C:\\Users\\voce\\Documents\\chave-firebase.json');
   process.exit(2);
 }
 

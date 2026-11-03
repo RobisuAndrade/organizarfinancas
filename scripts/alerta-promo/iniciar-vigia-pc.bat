@@ -9,6 +9,12 @@ if not exist node_modules (
 
 :inicio
 node pc-vigia.mjs
+if %errorlevel%==2 (
+  echo.
+  echo Corrija o que esta acima no arquivo .env e abra este arquivo de novo.
+  pause
+  exit /b
+)
 echo.
 echo O vigia parou. Reiniciando em 15 segundos... (feche esta janela para parar de vez)
 timeout /t 15 /nobreak >nul
