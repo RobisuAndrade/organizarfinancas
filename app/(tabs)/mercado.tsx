@@ -230,7 +230,7 @@ export default function Mercado() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
         {/* CABEÇALHO */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))} style={styles.backButton}>
             <Feather name="arrow-left" size={24} color="#D4FF3A" />
           </TouchableOpacity>
           <View>

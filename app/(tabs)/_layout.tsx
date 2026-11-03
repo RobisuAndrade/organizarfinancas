@@ -167,6 +167,7 @@ export default function TabLayout() {
       <View style={{ flex: 1, backgroundColor: Colors.background }}>
         <Tabs
           tabBar={(props) => <BarraInferior {...props} abrirEscolha={setEscolhaAberta} />}
+          backBehavior="history"
           screenOptions={{ headerShown: false }}
         >
           <Tabs.Screen name="index" />

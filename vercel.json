@@ -1,4 +1,6 @@
 {
+  "cleanUrls": true,
+  "rewrites": [{ "source": "/:path*", "destination": "/" }],
   "functions": {
     "api/nota.js": { "maxDuration": 30 }
   },
