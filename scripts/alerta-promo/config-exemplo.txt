@@ -1,0 +1,5 @@
+# Copie este arquivo para um novo arquivo chamado ".env" (mesma pasta, sem o .txt) e preencha. O ".env" nunca vai para o GitHub.
+TELEGRAM_BOT_TOKEN=cole_aqui_o_token_do_bot
+TELEGRAM_CHAT_ID=-100xxxxxxxxxx
+# Caminho do arquivo .json da chave do Firebase. Deixe FORA da pasta do projeto, por exemplo em Documentos.
+FIREBASE_SERVICE_ACCOUNT_FILE=C:\Users\SEU_USUARIO\Documents\chave-firebase.json

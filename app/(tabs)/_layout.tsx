@@ -21,6 +21,7 @@ const ABAS = [
   { tipo: 'direto', nome: 'gastos', titulo: 'Gestão de Gastos', icone: 'file-text' },
   { tipo: 'grupo', chave: 'comprasMercado' as TipoEscolhaRapida, titulo: 'Compras e Mercado', icone: 'shopping-bag' },
   { tipo: 'grupo', chave: 'salariosMetas' as TipoEscolhaRapida, titulo: 'Salários e Metas', icone: 'dollar-sign' },
+  { tipo: 'direto', nome: 'alertas', titulo: 'Alertas de promoção', icone: 'bell' },
 ] as const;
 
 // Barra de navegação flutuante e customizada.
@@ -166,6 +167,7 @@ export default function TabLayout() {
       <View style={{ flex: 1, backgroundColor: Colors.background }}>
         <Tabs
           tabBar={(props) => <BarraInferior {...props} abrirEscolha={setEscolhaAberta} />}
+          backBehavior="history"
           screenOptions={{ headerShown: false }}
         >
           <Tabs.Screen name="index" />
@@ -175,6 +177,7 @@ export default function TabLayout() {
           <Tabs.Screen name="mercado" />
           <Tabs.Screen name="metas" />
           <Tabs.Screen name="renda" />
+          <Tabs.Screen name="alertas" />
           {/* Arquivo existe para a Calculadora funcionar como componente, mas não é uma tela navegável */}
           <Tabs.Screen name="calculadora" options={{ href: null }} />
         </Tabs>

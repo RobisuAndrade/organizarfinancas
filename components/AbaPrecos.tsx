@@ -4,7 +4,7 @@
 import { Feather } from '@expo/vector-icons';
 import { onValue, ref } from 'firebase/database';
 import { ReactNode, useEffect, useMemo, useState } from 'react';
-import { Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { BackHandler, Linking, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { db } from '../firebaseConfig';
 import { formatarMoeda } from '../utils/formatadores';
 import {
@@ -49,6 +49,19 @@ export default function AbaPrecos({ segmento }: { segmento: ReactNode }) {
     const unsub = onValue(ref(db, 'acompanharPrecos'), (snap) => setDados(snap.val() || {}));
     return () => unsub();
   }, []);
+
+  // Botão "voltar" do celular: se houver um painel aberto (novo produto, comparar, alerta), fecha ele primeiro
+  const painelAberto = aberto !== null || comparando || alertando;
+  useEffect(() => {
+    if (!painelAberto) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (alertando) setAlertando(false);
+      else if (comparando) setComparando(false);
+      else setAberto(null);
+      return true;
+    });
+    return () => sub.remove();
+  }, [painelAberto, alertando, comparando]);
 
   const produtos: Produto[] = useMemo(() => {
     const lista: Produto[] = Object.keys(dados).map((id) => ({
